@@ -1,0 +1,22 @@
+# Test Rz/Sz
+# Scott Bronson
+# 4 Nov 2004
+
+# Like RzhSz.test, but transfers a very large file instead of a very
+# small file (512K+1B instead of 512B).
+
+size: 524289
+
+rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
+
+mkdir /tmp/tmtest-zmodem
+mkfifo /tmp/tmtest-zmodem-pipe
+randfile --seed=1 --size=$(size) > /tmp/tmtest-zmodem-data
+
+# sz outputs sometimes outputs a ^M on stderr so we need to just discard it.
+sz -q /tmp/tmtest-zmodem-data 2>/dev/null < /tmp/tmtest-zmodem-pipe | \
+	(cd /tmp/tmtest-zmodem && exec rzh -rq > /tmp/tmtest-zmodem-pipe)
+
+randfile --seed=1 --size=$(size) --check < /tmp/tmtest-zmodem/tmtest-zmodem-data
+
+------ STDOUT: exit code 0 - no error
