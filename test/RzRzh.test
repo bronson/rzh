@@ -2,7 +2,7 @@
 # Scott Bronson
 # 4 Nov 2004
 
-# x disabled: yes, until sending can be debugged.
+disabled: yes, until sending can be debugged.
 
 # Like RzhRzh, but uses Rz to receive, and Rzh -s to send.
 

@@ -1,4 +1,4 @@
-13 Nov 2004: tagged version 0.2 (r26)
+13 Nov 2004: tagged version 0.2 (r27)
  * Made zmfr.c modular, sent in patches.
  * Added send functionality but it appears very broken.
 
