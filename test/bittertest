@@ -1,0 +1,60 @@
+#!/bin/sh
+
+# Scott Bronson
+# 3 Nov 2004
+
+# This throws an endless stream of randomly-sized files with
+# randomly chosen attributes at the zmodem transfer programs.
+# It stops if it finds an error.
+
+# -r: random seed (by default 1)
+# -s: maximum file size (by default 64 megabytes).
+#     note that we use rand^4, so the avg file size is smaller
+
+# todo: should randomize the filename too.
+
+
+RANDOM=1
+MAXSIZE=64*1048576
+
+while getopts ":nr:s:" opt
+do
+	case $opt in
+		n) CHECKSIZE=1;;
+		r) RANDOM=$OPTARG;;
+		s) MAXSIZE=$OPTARG;;
+		*) echo "invalid option: ${OPTARG}"; exit 1;;
+	esac
+done
+shift $(($OPTIND - 1))
+if (($#)); then
+	echo "Too many arguments!"
+	exit 0
+fi
+# for arg do echo '--> '"\`$arg'" ; done
+
+
+# want a dist weighted towards small files so I'll square the result.
+MAXSIZE=$(echo "sqrt(sqrt($MAXSIZE))" | bc)
+
+while :
+do
+	# size=$(((($RANDOM << 16) | $RANDOM) % $MAXSIZE))
+	size=$((($RANDOM % $MAXSIZE) ** 4))
+	seed=$(($RANDOM))
+	name=transfer
+	mode=$(($RANDOM))
+
+	if (($CHECKSIZE)) ; then
+		echo $size
+	else
+		echo "size=${size} seed=${seed} name=${name} mode=${mode}...  "
+	fi
+done
+
+
+#for((a=1; a <= "$NUM"; a++))
+#do
+#	echo $(($RANDOM))
+#done
+
