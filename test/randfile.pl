@@ -5,12 +5,15 @@
 
 # quick 'n dirty script to generate a random sequence of bytes.
 # can also check a sequence to ensure it's correct.
-# gad, it's not so quick but it's still dirty.
+# gad, it's not so quick but it's still dirty.  This should be
+# rewritten in C.
 
 # Usage:
 # --seed=12     sets seed for random number generator
 # --size=47     sets the amount of data (either expected or generated)
-# --check       will check the data on stdin instead of generating it on stdout.
+# --check       will check the data on stdin instead of generating it
+# If you don't supply --check, it will generate random data on stdout.
+
 
 use strict;
 
@@ -35,7 +38,7 @@ if($check) {
 
 	binmode(STDIN);
 	while($total <= $size && ($cnt = read(STDIN, $buf, 1))) {
-		die "Could not read from stdin: $!\n" unless defined $cnt;
+		die "Could not read: $!\n" unless defined $cnt;
 
 		if($cnt) {
 			die "Error: byte $total doesn't match.\n"
@@ -47,7 +50,7 @@ if($check) {
 	}
 
 	die "Too much input: expected only $size bytes.\n" if $total > $size;
-	die "Too little input: expected $size but got $total bytes.\n" if $total < $size;
+	die "Too little input: expected $size but only got $total bytes.\n" if $total < $size;
 
 } else {
 

@@ -7,20 +7,38 @@
 # randomly chosen attributes at the zmodem transfer programs.
 # It stops if it finds an error.
 
+# -e: examine generated file sizes.
 # -r: random seed (by default 1)
 # -s: maximum file size (by default 64 megabytes).
 #     note that we use rand^4, so the avg file size is smaller
 
+# I just don't trust errexit or pipefail so I check the result of each
+# command manually.  Amazingly, they both appear to have bugs on some
+# platforms!
+
 # todo: should randomize the filename too.
+
+
+# full path to randfile program
+RANDFILE=./randfile.pl
+RZ=/usr/bin/rz
+SZ=/usr/bin/sz
+
+
+srcfile="/tmp/bittertest.data"
+dstdir="/tmp/bittertest"
+dstfile="$dstdir/bittertest.data"
+pipe="/tmp/bittertest.pipe"
 
 
 RANDOM=1
 MAXSIZE=64*1048576
 
-while getopts ":nr:s:" opt
+while getopts ":en:r:s:" opt
 do
 	case $opt in
-		n) CHECKSIZE=1;;
+		e) CHECKSIZE=1;;
+		n) MAXITER=$OPTARG;;
 		r) RANDOM=$OPTARG;;
 		s) MAXSIZE=$OPTARG;;
 		*) echo "invalid option: ${OPTARG}"; exit 1;;
@@ -34,21 +52,60 @@ fi
 # for arg do echo '--> '"\`$arg'" ; done
 
 
-# want a dist weighted towards small files so I'll square the result.
-MAXSIZE=$(echo "sqrt(sqrt($MAXSIZE))" | bc)
+rm -rf "$dstdir" "$pipe"
+mkdir "$dstdir"
+mkfifo "$pipe"
 
+
+count=0
 while :
 do
-	# size=$(((($RANDOM << 16) | $RANDOM) % $MAXSIZE))
-	size=$((($RANDOM % $MAXSIZE) ** 4))
 	seed=$(($RANDOM))
 	name=transfer
-	mode=$(($RANDOM))
+
+	# hackish way of generating a random number heavily weighted
+	# towards the bottom, but still occasionally generates really large
+	# numbers, prime numbers, etc.
+	size=$(((($RANDOM << 16) | $RANDOM) % $MAXSIZE))
+	size=$(((($RANDOM << 16) | $RANDOM) % ($size+1)))
+	size=$(((($RANDOM << 16) | $RANDOM) % ($size+1)))
+	size=$(((($RANDOM << 16) | $RANDOM) % ($size+1)))
+	size=$(((($RANDOM << 16) | $RANDOM) % ($size+1)))
+
+	# Ensure that the file always has u+r permission.
+	mode=$((($RANDOM % 4096) | 0400))
+	mode=`printf "%04o" $mode`
 
 	if (($CHECKSIZE)) ; then
 		echo $size
 	else
-		echo "size=${size} seed=${seed} name=${name} mode=${mode}...  "
+		rm -f "$srcfile" "$dstfile"
+
+		# create file contents
+		echo "size=${size} seed=${seed} name=${name} mode=${mode}"
+		$RANDFILE --size=$size --seed=$seed > "$srcfile"
+		if (($?)) ; then echo "Error in randfile."; exit 1; fi
+		chmod $mode "$srcfile"
+		if (($?)) ; then echo "Error in chmod."; exit 1; fi
+
+		# transmit the file
+		$SZ -q "$srcfile" < "$pipe" | (cd "$dstdir" && exec $RZ -q > "$pipe")
+		if (($?)) ; then echo "Error in transmission."; exit 1; fi
+
+		# unfortunately, stat appears to return a 0 exit code no matter what.
+		sti=`stat -c "%a %Y" "$srcfile"`
+		if (($?)) ; then echo "Error calling stat on input file."; exit 1; fi
+		sto=`stat -c "%a %Y" "$dstfile"`
+		if (($?)) ; then echo "Error calling stat on output file."; exit 1; fi
+		if [ "$sti" != "$sto" ]; then echo "Stats don't match.  src='$sti' dst='$sto'"; exit 1; fi
+
+		cmp "$srcfile" "$dstfile"
+		if (($?)) ; then echo "Error in comparison.  Files don't match?"; exit 1; fi
+	fi
+
+	count=$((count+1))
+	if [ "$count" -ge "$MAXITER" ] ; then
+		exit 0;
 	fi
 done
 
