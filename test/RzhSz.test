@@ -13,3 +13,6 @@ sz -q /tmp/tmtest-zmodem-data < /tmp/tmtest-zmodem-pipe | \
 
 randfile --seed=1 --size=512 --check < /tmp/tmtest-zmodem/tmtest-zmodem-data
 
+------ STDERR:
+1 file and 512 bytes transferred in 0.01114 secs: 44.871 kbyte/sec
+------ STDOUT: exit code 0 - no error
