@@ -1,0 +1,30 @@
+rzh -- Receive Zmodem Here
+Scott Bronson
+
+
+USAGE
+
+Simply run this command in the directory where you'd like to receive
+files.
+
+$ cd ~/downloads
+$ rzh
+
+Then, whenever you see a file that you'd like to appear in your
+downloads directory, simply run sz on it.
+
+$ ssh my.asplode.com
+$ sz /etc/hosts
+
+After a little transfer time, the /etc/hosts file on my.asplode.com
+appears in ~/downloads.  Couldn't be easier.
+
+
+LICENSING
+
+This code is based on pdpzm from http://freespace.virgin.net/paul.edwards3/program.htm
+and some source from the FreeBSD version of the script command.  All
+files that were originally a part of pdpzm, including any modifications
+thereto, remain in the public domain.  All other files are licensed
+under the BSD license.
+

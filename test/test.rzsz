@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# Ensures that rz/sz are minimally functional on this system.
+# This file is mostly original but I cribbed from lrzsz's fastcheck.sh.
+
+# Simply pass the files to transfer on the command line.  It will
+# transfer them into a directory in /tmp.  If the transfer succeeds,
+# all files are cleaned up.  If not, the files that failed are left
+# in /tmp and an error message is printed.  This means, of course,
+# that the basename of all files must be unique.
+
+if [ $# = "0" ]; then
+	echo "You must supply one or more files to transfer."
+	exit 0
+fi
+
+RZ=/usr/bin/rz
+SZ=/usr/bin/sz
+DIR=/tmp/rzsz.test.$$
+PIPE=$DIR/pipe
+
+mkdir $DIR
+mkdir $DIR/files
+mkfifo $PIPE
+
+$SZ -q $* < $PIPE | (cd $DIR/files && exec $RZ > $PIPE)
+
+FAIL=0
+for I in $*; do
+	B=`basename $I`
+	O=$DIR/files/$B
+	cmp "$I" "$O"
+	if [ $? = "0" ]; then
+		echo "$B" checks out.
+		rm -f "$O"
+	else
+		FAIL=1
+	fi
+done
+
+if [ $FAIL = "0" ]; then
+	rmdir $DIR/files
+	rm $PIPE
+	rmdir $DIR
+	echo "All files succeeded."
+else
+	echo "FAILED!  Failed files are in $DIR/files"
+fi
+
