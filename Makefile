@@ -18,6 +18,7 @@ COPTS+=-g
 COPTS+=-DVERSION=$(VERSION)
 
 all: rzh doc
+	@(cd test; $(MAKE))
 
 rzh: $(OBJ)
 	$(CC) $(OBJ) -lrt -lutil -o rzh
@@ -45,8 +46,11 @@ clean:
 	rm -f $(CSRC:.c=.o)
 	rm -f $(CSRC:.c=.dep)
 	rm -f $(CSRC:.c=.dep.*)
+	@(cd test; $(MAKE) clean)
+
+dist-clean: clean
 
 test: rzh
-	(cd test; $(MAKE) test)
+	@(cd test; $(MAKE) test)
 
 .PHONY: test
