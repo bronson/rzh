@@ -1,6 +1,6 @@
 /*********************************************************************/
 /*                                                                   */
-/*  This Program Written by Paul Edwards, 3:711/934@fidonet.         */
+/*  This Program Written by Paul Edwards                             */
 /*  Released to the Public Domain                                    */
 /*                                                                   */
 /*********************************************************************/
@@ -233,9 +233,10 @@ static void receiveFile(ZMCORE *zmcore)
     zmcore->goodOffset = 0;
     zmcore->skip = 0;
     extFileReceiveStart(zmcore, zmcore->zmext);
-	if(!ALLOK) {
-		return;
-	}
+    if(!ALLOK)
+    {
+        return;
+    }
 
     if (zmcore->skip)
     {
@@ -590,7 +591,7 @@ static void getFileData(ZMCORE *zmcore)
                 {
                     problem = 0;
                     sscanf(zmcore->fileinfo, "%ld %lo %o", &zmcore->filesize,
-                        &zmcore->filetime, &zmcore->filemode);
+                           &zmcore->filetime, &zmcore->filemode);
 
                 }
             }        
@@ -1528,10 +1529,12 @@ static void sendFile(ZMCORE *zmcore)
                                 zmcore->mainBuf, 
                                 zmcore->maxTx, 
                                 &zmcore->bytes);
-            if(!ALLOK) {
+            if (!ALLOK)
+            {
                 break;
             }
-            if(!zmcore->bytes) {
+            if (!zmcore->bytes)
+            {
                 state = SM_SENDZEOF;
             }
             else

@@ -1,14 +1,18 @@
 /*********************************************************************/
 /*                                                                   */
-/*  This Program Written by Paul Edwards, 3:711/934@fidonet.         */
+/*  This Program Written by Paul Edwards                             */
 /*  Released to the Public Domain                                    */
 /*                                                                   */
 /*********************************************************************/
 /*********************************************************************/
 /*                                                                   */
-/*  zmfr - friend functions that operate on zmcore + zmext           */
+/*  zmfr - functions to operate on files.                            */
 /*                                                                   */
 /*********************************************************************/
+
+/* This file demonstrates how to write zmfr.c for a POSIX system.
+   Receive works.  Since my program doesn't need send, I haven't
+   verified that send works. */
 
 #include <errno.h>
 #include <sys/types.h>
@@ -35,7 +39,8 @@ void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset)
 
     unused(zmcore);
     curpos = lseek(zmext->fd, offset, SEEK_SET);
-    if(curpos != offset) {
+    if (curpos != offset)
+    {
         errorSet("Couldn't seek to %lu on %s: %s\n",
                 offset, zmcore->filename, strerror(errno));
     }
@@ -75,7 +80,8 @@ void extFileReceiveData(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t bytes)
 
     unused(zmcore);
     cnt = write(zmext->fd, buf, bytes);
-    if(cnt != bytes) {
+    if (cnt != bytes)
+    {
         errorSet("fwrite failed on %s, wrote only %ld bytes: %s\n",
                 zmcore->filename, cnt, strerror(errno));
     }
@@ -89,26 +95,30 @@ void extFileReceiveFinish(ZMCORE *zmcore, ZMEXT *zmext)
     int err;
 
     err = close(zmext->fd);
-    if(err != 0) {
+    if (err != 0)
+    {
         errorSet("Error closing receive file %s: %s", zmcore->filename, strerror(errno));
         return;
     }
 
-    // Set file mtime.
-    if(zmcore->filetime) {
+    /* Set file mtime.*/
+    if (zmcore->filetime)
+    {
         tv.actime = tv.modtime = zmcore->filetime;
         err = utime(zmcore->filename, &tv);
-        if(err) {
+        if (err) 
+        {
             fprintf(stderr, "Error setting mtime for %s: %s\n",
                     zmcore->filename, strerror(errno));
         }
     }
 
-    // Set file mode.  Ensure that we don't set exec or special permissions
-    // if user is running as root.
+    /* Set file mode.  Ensure that we don't set exec or special permissions
+       if user is running as root. */
     err = chmod(zmcore->filename, zmcore->filemode &
             (geteuid() ? 07777 : 00666));
-    if(err) {
+    if (err)
+    {
         fprintf(stderr, "Error setting permissions for %s to 0%o: %s\n",
                 zmcore->filename, (int)zmcore->filemode, strerror(errno));
     }
@@ -131,24 +141,30 @@ void extFileSendStart(ZMCORE *zmcore, ZMEXT *zmext)
     struct stat st;
     int err;
 
-    if(!*zmext->argv) {
-        // no more files
-        return;
-    }
+    /* find next file to open */
     strncpy(zmcore->filename, *zmext->argv, sizeof(zmcore->filename));
     zmcore->filename[sizeof(zmcore->filename)-1] = '\0';
-    zmext->argv++;
+    if (*zmext->argv) 
+    {
+        zmext->argv++;
+    }
 
-    // open it
+    /* open it */
     zmext->fd = open(zmcore->filename, O_RDONLY);
-    if (zmext->fd == -1) {
+    if (zmext->fd == -1) 
+    {
         errorSet("failed to open file %s: %s\n", zmcore->filename, strerror(errno));
-    } else {
-        // and read its attrs
+    } 
+    else 
+    {
+        /* and read its attrs */
         err = fstat(zmext->fd, &st);
-        if(err) {
+        if (err) 
+        {
             errorSet("failed to stat file %s: %s\n", zmcore->filename, strerror(errno));
-        } else {
+        } 
+        else 
+        {
             zmcore->filetime = st.st_mtime;
             zmcore->filesize = st.st_size;
             zmcore->filemode = st.st_mode;
@@ -169,7 +185,8 @@ void extFileSendData(ZMCORE *zmcore,
     do {
         *bytes = read(zmext->fd, buf, max);
         if(*bytes < 0) {
-            errorSet("Read error on %s: %s\n", zmcore->filename, strerror(errno));
+            errorSet("Read error on %s: %s\n", zmcore->filename, strerror(errno
+                        ));
             break;
         }
         buf += *bytes;

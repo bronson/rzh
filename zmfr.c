@@ -1,12 +1,12 @@
 /*********************************************************************/
 /*                                                                   */
-/*  This Program Written by Paul Edwards, 3:711/934@fidonet.         */
+/*  This Program Written by Paul Edwards                             */
 /*  Released to the Public Domain                                    */
 /*                                                                   */
 /*********************************************************************/
 /*********************************************************************/
 /*                                                                   */
-/*  zmfr - friend functions that operate on zmcore + zmext           */
+/*  zmfr - functions to operate on files.                            */
 /*                                                                   */
 /*********************************************************************/
 
@@ -33,7 +33,8 @@ void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset)
     unused(zmcore);
     printf("seeking to offset %lu\n", offset);
     curpos = fseek(zmext->fq, offset, SEEK_SET);
-    if(curpos != offset) {
+    if (curpos != offset)
+    {
         errorSet("Couldn't seek to %lu: %s\n", offset, strerror(errno));
     }
     return;
@@ -74,8 +75,10 @@ void extFileReceiveData(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t bytes)
 
     unused(zmcore);
     cnt = fwrite(buf, 1, bytes, zmext->fq);
-    if(cnt != bytes) {
-        errorSet("fwrite failed, wrote only %ld bytes: %s\n", cnt, strerror(errno));
+    if (cnt != bytes)
+    {
+        errorSet("fwrite failed, wrote only %ld bytes: %s\n", 
+                 cnt, strerror(errno));
     }
 }
 
@@ -88,7 +91,8 @@ void extFileReceiveFinish(ZMCORE *zmcore, ZMEXT *zmext)
     unused(zmcore);
     printf("closing write file\n");
     err = fclose(zmext->fq);
-    if(err != 0) {
+    if (err != 0)
+    {
         errorSet("Error closing file: %s", strerror(errno));
     }
 }
@@ -134,7 +138,8 @@ void extFileSendData(ZMCORE *zmcore,
 {
     unused(zmcore);
     *bytes = fread(buf, 1, max, zmext->fq);
-    if(ferror(zmext->fq)) {
+    if (ferror(zmext->fq))
+    {
         errorSet("Read error: %s\n", strerror(errno));
     }
     printf("read %d bytes\n", *bytes);
@@ -149,8 +154,8 @@ void extFileSendFinish(ZMCORE *zmcore, ZMEXT *zmext)
     unused(zmcore);
     printf("closing read file\n");
     err = fclose(zmext->fq);
-    if(err != 0) {
+    if (err != 0)
+    {
         errorSet("Error closing file: %s", strerror(errno));
     }
 }
-

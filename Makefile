@@ -5,7 +5,7 @@
 VERSION=0.2
 
 # pdpzm files
-CSRC=zmcore.c zmfr-unix.c zmextm.c error.c pdcomm.c fifo.c bgio.c scan.c zio.c rzh.c
+CSRC=zmcore.c zmfrunix.c zmextm.c error.c pdcomm.c fifo.c bgio.c scan.c zio.c rzh.c
 
 
 # ------------------------ #

@@ -1,6 +1,6 @@
 /*********************************************************************/
 /*                                                                   */
-/*  This Program Written by Paul Edwards, 3:711/934@fidonet.         */
+/*  This Program Written by Paul Edwards                             */
 /*  Released to the Public Domain                                    */
 /*                                                                   */
 /*********************************************************************/
