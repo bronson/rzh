@@ -13,7 +13,7 @@
 # -l  : tells bittertest to use lrzsz to receive instead of rzh.
 # -n N: the maximum number of tests to perform (default: unlimited)
 # -r N: random seed (default: 1)
-# -s N: maximum file size (by default 64 megabytes).
+# -s N: maximum file size in bytes (by default 64 megabytes).
 #     	note that we use rand^4, so the avg file size is smaller than 32 MB
 # -t P: specifies the temporary directory to use (default: /tmp)
 
@@ -46,15 +46,17 @@ RZ=`pwd`"/../rzh -r"
 SZ=/usr/bin/sz
 TMPDIR="/tmp"
 
+NOMODE=0
 RANDOM=1
 MAXSIZE=64*1048576
 
-while getopts ":eRSn:r:s:t:" opt
+while getopts ":elmn:Rr:Ss:t:" opt
 do
 	case $opt in
 		e) CHECKSIZE=1;;
 		R) RZ=/usr/bin/rz;;
 		S) SZ=/usr/bin/sz;;
+        m) NOMODE=1;;       # don't check file mode or mtime.
 		n) MAXITER=$OPTARG;;
 		r) RANDOM=$OPTARG;;
 		s) MAXSIZE=$OPTARG;;
@@ -131,12 +133,14 @@ do
 		printf "$forma" $count $size $seed "$name" $mode
 		if (($?)) ; then echo "Error in transmission."; exit 1; fi
 
-		# unfortunately, stat appears to return a 0 exit code no matter what.
-		sti=`stat -c "%a %Y" "$srcfile"`
-		if (($?)) ; then echo "Error calling stat on input file."; exit 1; fi
-		sto=`stat -c "%a %Y" "$dstfile"`
-		if (($?)) ; then echo "Error calling stat on output file."; exit 1; fi
-		if [ "$sti" != "$sto" ]; then echo "Stats don't match.  src='$sti' dst='$sto'"; exit 1; fi
+        if ((!$NOMODE)) ; then
+            # unfortunately, stat appears to return a 0 exit code no matter what.
+            sti=`stat -c "%a %Y" "$srcfile"`
+            if (($?)) ; then echo "Error calling stat on input file."; exit 1; fi
+            sto=`stat -c "%a %Y" "$dstfile"`
+            if (($?)) ; then echo "Error calling stat on output file."; exit 1; fi
+            if [ "$sti" != "$sto" ]; then echo "Stats don't match.  src='$sti' dst='$sto'"; exit 1; fi
+        fi
 
 		nowc=`date +%s.%N`
 		cmp "$srcfile" "$dstfile"

@@ -10,9 +10,12 @@
 /*                                                                   */
 /*********************************************************************/
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <utime.h>
 
 #include <error.h>
 #include <trav.h>
@@ -28,13 +31,13 @@
  */
 void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset)
 {
-    long curpos;
+    off_t curpos;
 
     unused(zmcore);
-    printf("seeking to offset %lu\n", offset);
-    curpos = fseek(zmext->fq, offset, SEEK_SET);
+    curpos = lseek(zmext->fd, offset, SEEK_SET);
     if(curpos != offset) {
-        errorSet("Couldn't seek to %lu: %s\n", offset, strerror(errno));
+        errorSet("Couldn't seek to %lu on %s: %s\n",
+                offset, zmcore->filename, strerror(errno));
     }
     return;
 }
@@ -55,10 +58,8 @@ void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset)
  */
 void extFileReceiveStart(ZMCORE *zmcore, ZMEXT *zmext)
 {
-    unused(zmcore);
-    printf("opening file %s\n", zmcore->filename);
-    zmext->fq = fopen(zmcore->filename, "wb");
-    if (zmext->fq == NULL)
+    zmext->fd = open(zmcore->filename, O_CREAT|O_WRONLY|O_TRUNC);
+    if (zmext->fd < 0)
     {
         errorSet("failed to open file %s: %s\n", zmcore->filename, strerror(errno));
     }
@@ -73,9 +74,10 @@ void extFileReceiveData(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t bytes)
     long cnt;
 
     unused(zmcore);
-    cnt = fwrite(buf, 1, bytes, zmext->fq);
+    cnt = write(zmext->fd, buf, bytes);
     if(cnt != bytes) {
-        errorSet("fwrite failed, wrote only %ld bytes: %s\n", cnt, strerror(errno));
+        errorSet("fwrite failed on %s, wrote only %ld bytes: %s\n",
+                zmcore->filename, cnt, strerror(errno));
     }
 }
 
@@ -83,13 +85,32 @@ void extFileReceiveData(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t bytes)
  */
 void extFileReceiveFinish(ZMCORE *zmcore, ZMEXT *zmext)
 {
+    struct utimbuf tv;
     int err;
 
-    unused(zmcore);
-    printf("closing write file\n");
-    err = fclose(zmext->fq);
+    err = close(zmext->fd);
     if(err != 0) {
-        errorSet("Error closing file: %s", strerror(errno));
+        errorSet("Error closing receive file %s: %s", zmcore->filename, strerror(errno));
+        return;
+    }
+
+    // Set file mtime.
+    if(zmcore->filetime) {
+        tv.actime = tv.modtime = zmcore->filetime;
+        err = utime(zmcore->filename, &tv);
+        if(err) {
+            fprintf(stderr, "Error setting mtime for %s: %s\n",
+                    zmcore->filename, strerror(errno));
+        }
+    }
+
+    // Set file mode.  Ensure that we don't set exec or special permissions
+    // if user is running as root.
+    err = chmod(zmcore->filename, zmcore->filemode &
+            (geteuid() ? 07777 : 00666));
+    if(err) {
+        fprintf(stderr, "Error setting permissions for %s to 0%o: %s\n",
+                zmcore->filename, (int)zmcore->filemode, strerror(errno));
     }
 }
 
@@ -107,18 +128,31 @@ void extFileReceiveFinish(ZMCORE *zmcore, ZMEXT *zmext)
  */
 void extFileSendStart(ZMCORE *zmcore, ZMEXT *zmext)
 {
-    strcpy(zmcore->filename, zmext->fileList[zmext->fileUpto++]);
-    printf("opening file %s\n", zmcore->filename);
-    zmext->fq = fopen(zmcore->filename, "rb");
-    if (zmext->fq == NULL)
-    {
-        errorSet("failed to open file %s: %s\n", zmcore->filename, strerror(errno));
+    struct stat st;
+    int err;
+
+    if(!*zmext->argv) {
+        // no more files
+        return;
     }
-    else
-    {
-        fseek(zmext->fq, 0, SEEK_END);
-        zmcore->filesize = ftell(zmext->fq);
-        rewind(zmext->fq);
+    strncpy(zmcore->filename, *zmext->argv, sizeof(zmcore->filename));
+    zmcore->filename[sizeof(zmcore->filename)-1] = '\0';
+    zmext->argv++;
+
+    // open it
+    zmext->fd = open(zmcore->filename, O_RDONLY);
+    if (zmext->fd == -1) {
+        errorSet("failed to open file %s: %s\n", zmcore->filename, strerror(errno));
+    } else {
+        // and read its attrs
+        err = fstat(zmext->fd, &st);
+        if(err) {
+            errorSet("failed to stat file %s: %s\n", zmcore->filename, strerror(errno));
+        } else {
+            zmcore->filetime = st.st_mtime;
+            zmcore->filesize = st.st_size;
+            zmcore->filemode = st.st_mode;
+        }
     }
 }
 
@@ -127,30 +161,32 @@ void extFileSendStart(ZMCORE *zmcore, ZMEXT *zmext)
  * Return the number of bytes read in "bytes" or 0 at EOF.
  */
 void extFileSendData(ZMCORE *zmcore,
-                   ZMEXT *zmext,
-                   void *buf, 
-                   size_t max, 
-                   size_t *bytes)
+        ZMEXT *zmext,
+        void *buf, 
+        size_t max, 
+        size_t *bytes)
 {
-    unused(zmcore);
-    *bytes = fread(buf, 1, max, zmext->fq);
-    if(ferror(zmext->fq)) {
-        errorSet("Read error: %s\n", strerror(errno));
-    }
-    printf("read %d bytes\n", *bytes);
+    do {
+        *bytes = read(zmext->fd, buf, max);
+        if(*bytes < 0) {
+            errorSet("Read error on %s: %s\n", zmcore->filename, strerror(errno));
+            break;
+        }
+        buf += *bytes;
+        max -= *bytes;
+    } while(max > 0);
 }
 
 /** Closes the file opened by extFileSendStart.
- */
+*/
 void extFileSendFinish(ZMCORE *zmcore, ZMEXT *zmext)
 {
     int err;
 
-    unused(zmcore);
-    printf("closing read file\n");
-    err = fclose(zmext->fq);
+    err = close(zmext->fd);
     if(err != 0) {
-        errorSet("Error closing file: %s", strerror(errno));
+        errorSet("Error closing send file %s: %s", zmcore->filename, strerror(errno));
+        return;
     }
 }
 

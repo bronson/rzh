@@ -126,8 +126,8 @@ void receive_file()
 		ds = start.tv_sec + ((double)start.tv_nsec)/1000000000;
 		de = end.tv_sec + ((double)end.tv_nsec)/1000000000;
 		total = de - ds;
-		long tbt = zmc.total_bytes_transferred;
-		long tft = zmc.total_files_transferred;
+		long tbt = 0; // zmc.zmext->total_bytes_transferred;
+		long tft = 0; // zmc.zmext->total_files_transferred;
 
 		fprintf(stderr, "%ld file%s and %ld bytes transferred in %.5f secs: %.3f kbyte/sec\r\n",
 				tft, (tft==1?"":"s"), tbt, total, (tbt/total/1024.0));
@@ -302,7 +302,7 @@ int main(int argc, char **argv)
 
 	if(do_send) {
 		init_zmcore();
-		zme.argv = &argv[optind];
+		// zme.argv = &argv[optind];
 		zmcoreSend(&zmc);
 	} else if(do_receive) {
 		if(chdir_to_dldir() != 0) {

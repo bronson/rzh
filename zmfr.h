@@ -15,34 +15,15 @@
 #include "zmcore.h"
 #include "zmext.h"
 
-void extModemClearInbound(ZMCORE *zmcore, ZMEXT *zmext);
-void extModemResponseSent(ZMCORE *zmcore, ZMEXT *zmext);
-void extModemGetBlock(ZMCORE *zmcore, 
-                      ZMEXT *zmext, 
-                      void *buf, 
-                      size_t max, 
-                      size_t *actual);
-void extModemRegisterBad(ZMCORE *zmcore, ZMEXT *zmext);
-void extModemRegisterGood(ZMCORE *zmcore, ZMEXT *zmext);
-void extModemGetBlockImm(ZMCORE *zmcore,
-                         ZMEXT *zmext,
-                         void *buf, 
-                         size_t max, 
-                         size_t *actual);
-void extModemWriteBlock(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t max);
-
-void extFileSetInfo(ZMCORE *zmcore,
-                    ZMEXT *zmext,
-                    unsigned char *filename, 
-                    unsigned char *fileinfo,
-                    long *offset,
-                    int *skip);
-void extFileWriteData(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t bytes);
-void extFileFinish(ZMCORE *zmcore, ZMEXT *zmext);
-int extFileGetFile(ZMCORE *zmcore, ZMEXT *zmext);
 void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset);
-int extFileGetData(ZMCORE *zmcore, 
+
+void extFileReceiveStart(ZMCORE *zmcore, ZMEXT *zmext);
+void extFileReceiveData(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t bytes);
+void extFileReceiveFinish(ZMCORE *zmcore, ZMEXT *zmext);
+void extFileSendStart(ZMCORE *zmcore, ZMEXT *zmext);
+void extFileSendData(ZMCORE *zmcore, 
                    ZMEXT *zmext,
                    void *buf, 
                    size_t max, 
                    size_t *bytes);
+void extFileSendFinish(ZMCORE *zmcore, ZMEXT *zmext);

@@ -2,7 +2,7 @@
 # Scott Bronson
 # 4 Nov 2004
 
-disabled: yes, until sending can be debugged.
+# x disabled: yes, until sending can be debugged.
 
 rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
 

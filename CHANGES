@@ -1,12 +1,14 @@
-5 Nov 2004: tagged version 0.1 (r21)
+13 Nov 2004: tagged version 0.2 (r26)
+ * Made zmfr.c modular, sent in patches.
+ * Added send functionality but it appears very broken.
+
+ 5 Nov 2004: tagged version 0.1 (r21)
 
 
 todo: add progress disply
 todo: add specifying a subshell (-c).
-todo: add tmtest regression harness (make tmtest support tmpfiles first)
-         test perms as root (how?  fakeroot?), timeouts, bad filenames/paths
+todo: add tests for perms as root (how?  fakeroot?), timeouts, bad filenames/paths, clobber
 todo: fix timeouts
-todo: add sending (-s)
 todo: Do I need to worry about DosSleep?  (not if we make extModem modular)
 todo: what happens if the dldir is write-protected?
 todo: what happens if I try to clobber a file?

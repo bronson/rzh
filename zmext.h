@@ -13,13 +13,16 @@
 #ifndef ZMEXT_INCLUDED
 #define ZMEXT_INCLUDED
 
+#include <stddef.h>
+#include <stdio.h>
+
 #include <pdcomm.h>
 
 typedef struct
 {
-    int fd;
     PDCOMM *pdcomm;
-	char **argv;
+    int fd;
+    char **argv;
 } ZMEXT;
 
 #endif

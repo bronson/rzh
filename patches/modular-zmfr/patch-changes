@@ -1,0 +1,44 @@
+I've split this into 3 patches.  The code should compile and run perfectly
+after each step.  These apply against pdpzm105.zip.
+
+They are intended to change zmfr.c to contain only file-related calls,
+and to make those file-related calls modular.  This way, making
+pdpzm work natively on a Unix system simply means changing zmfr.c.
+
+
+patch -p1 < ../patch-0        -- do the split
+
+- Splits zmfr into zmfr+zmextm
+- Adds time and mode to ZMCORE
+  NOTE: I blew it with this change.  time.h and time_t
+  are unix-specific.  patch-3 fixes this.
+
+
+patch -p1 < ../patch-1       -- move to paramblock-based API.
+
+- Changes zmfr routines to be paramblock based.
+  All params just pointed back into the zmcore data structure anyway.
+  Now, extending zmfr capabilities (say, to add clobber/noclobber or
+  append flags, etc) is easy since there's no need to change zmfr's api.
+  Besides, after adding 2 more params (mode and time), things were getting
+  a bit silly...
+- Adds some API documentation.
+
+
+patch -p1 < ../patch-2       -- add the get/set code.
+
+- Adds code to set/get time and mode to zmcore.c
+
+
+patch -p1 < ../patch-3       -- clean up api, add error handling
+
+- Change extFileGetData to extFileReadData to make it more obvious
+  that it's a dual of extFileWriteData.
+- Change extFileSetInfo to extFileWriteStart, added extFileWriteFinish.
+- Change extFileGetFile to extFileReadStart, added extFileReadFinish.
+- Changed error handling to use setError.  This is more consistent
+  with the code in general and easier to use.
+- Add calls to strerror to generate better error messages.
+  (strerror is a part of ANSI X3.159-1989)
+- Changed "Read" and "Write" to "Send" and "Receive".  That's clearer.
+- Removed <time.h> from zmcore -- that's a unix-specific thing.

@@ -2,10 +2,10 @@
 # Scott Bronson
 # This file is MIT licensed (public domain, but removes author liability).
 
-VERSION=0.11
+VERSION=0.2
 
 # pdpzm files
-CSRC=zmcore.c zmfr.c error.c pdcomm.c fifo.c bgio.c scan.c zio.c rzh.c
+CSRC=zmcore.c zmfr-unix.c zmextm.c error.c pdcomm.c fifo.c bgio.c scan.c zio.c rzh.c
 
 
 # ------------------------ #

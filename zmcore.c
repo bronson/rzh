@@ -18,7 +18,7 @@
 #include <error.h>
 #include <estdlib.h>
 
-#include "zmext.h"
+#include "zmextm.h"
 #include "zmcore.h"
 #include "zmfr.h"
 #include "unused.h"
@@ -231,12 +231,12 @@ static void receiveFile(ZMCORE *zmcore)
     printf("in receiveFile\n");
 #endif
     zmcore->goodOffset = 0;
-    extFileSetInfo(zmcore, 
-                   zmcore->zmext,
-                   zmcore->filename, 
-                   zmcore->fileinfo, 
-                   &zmcore->goodOffset, 
-                   &zmcore->skip);
+    zmcore->skip = 0;
+    extFileReceiveStart(zmcore, zmcore->zmext);
+	if(!ALLOK) {
+		return;
+	}
+
     if (zmcore->skip)
     {
         sendZSKIP(zmcore);
@@ -274,7 +274,7 @@ static void receiveFile(ZMCORE *zmcore)
                     if (posMatch(zmcore))
                     {
                         extModemRegisterGood(zmcore, zmcore->zmext);
-                        extFileFinish(zmcore, zmcore->zmext);
+                        extFileReceiveFinish(zmcore, zmcore->zmext);
                         quit = 1;
                     }
                     else
@@ -325,7 +325,7 @@ static void receiveData(ZMCORE *zmcore)
             getData(zmcore);
             if (ALLOK)
             {
-                extFileWriteData(zmcore, 
+                extFileReceiveData(zmcore, 
                                  zmcore->zmext,
                                  zmcore->mainBuf, 
                                  (size_t)(zmcore->bufPos - zmcore->mainBuf));
@@ -360,7 +360,7 @@ static void receiveData(ZMCORE *zmcore)
                     if (posMatch(zmcore))
                     {
                         extModemRegisterGood(zmcore, zmcore->zmext);
-                        extFileFinish(zmcore, zmcore->zmext);
+                        extFileReceiveFinish(zmcore, zmcore->zmext);
                         quit = 1;
                     }
                 }
@@ -589,6 +589,9 @@ static void getFileData(ZMCORE *zmcore)
                 if ((pos - zmcore->mainBuf) < 1024)
                 {
                     problem = 0;
+                    sscanf(zmcore->fileinfo, "%ld %lo %o", &zmcore->filesize,
+                        &zmcore->filetime, &zmcore->filemode);
+
                 }
             }        
         }
@@ -1425,13 +1428,17 @@ void zmcoreSend(ZMCORE *zmcore)
 
 static void sendFiles(ZMCORE *zmcore)
 {
-    int gotfile;
     int tries;
     int sent;
     unsigned long offset;
     
-    gotfile = extFileGetFile(zmcore, zmcore->zmext);
-    while (ALLOK && gotfile)
+    zmcore->filename[0] = '\0';
+    zmcore->filesize = 0;
+    zmcore->filetime = 0;
+    zmcore->filemode = 0644;
+
+    extFileSendStart(zmcore, zmcore->zmext);
+    while (ALLOK && zmcore->filename[0] != '\0')
     {
         zmcore->goodOffset = 0;
         tries = 0;
@@ -1476,9 +1483,15 @@ static void sendFiles(ZMCORE *zmcore)
                 tries++;
             }
         }
+        extFileSendFinish(zmcore, zmcore->zmext);
         if (ALLOK)
         {
-            gotfile = extFileGetFile(zmcore, zmcore->zmext);
+            zmcore->filename[0] = '\0';
+            zmcore->filesize = 0;
+            zmcore->filetime = 0;
+            zmcore->filemode = 0644;
+
+            extFileSendStart(zmcore, zmcore->zmext);
         }
     }
     return;
@@ -1510,12 +1523,15 @@ static void sendFile(ZMCORE *zmcore)
 #ifdef DEBUG
             printf("in SM_SENDZDATA\n");
 #endif
-            if (!extFileGetData(zmcore, 
+            extFileSendData(zmcore, 
                                 zmcore->zmext,
                                 zmcore->mainBuf, 
                                 zmcore->maxTx, 
-                                &zmcore->bytes))
-            {
+                                &zmcore->bytes);
+            if(!ALLOK) {
+                break;
+            }
+            if(!zmcore->bytes) {
                 state = SM_SENDZEOF;
             }
             else
@@ -1560,7 +1576,7 @@ static void sendFile(ZMCORE *zmcore)
                         }
                         else 
                         {
-                            extFileGetData(zmcore,
+                            extFileSendData(zmcore,
                                            zmcore->zmext,
                                            zmcore->mainBuf, 
                                            zmcore->maxTx,
@@ -1671,7 +1687,8 @@ static void sendFILEINFO(ZMCORE *zmcore)
     buf = zmcore->mainBuf;
     strcpy((char *)buf, (char *)zmcore->filename);
     cnt = strlen((char *)buf) + 1;
-    sprintf((char *)buf + cnt, "%ld 0 0 0", zmcore->filesize); 
+    sprintf((char *)buf + cnt, "%ld %lo %o 0",
+        zmcore->filesize, zmcore->filetime, zmcore->filemode); 
     cnt = cnt + strlen((char *)buf + cnt) + 1;
     crcxmInit(&crc);
     for (x = 0; x < cnt; x++)

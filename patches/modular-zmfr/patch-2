@@ -1,0 +1,23 @@
+diff -ruN orig-2/zmcore.c new/zmcore.c
+--- orig-2/zmcore.c	2004-11-12 09:50:57.000000000 -0800
++++ new/zmcore.c	2004-11-12 10:07:54.000000000 -0800
+@@ -585,6 +585,9 @@
+                 if ((pos - zmcore->mainBuf) < 1024)
+                 {
+                     problem = 0;
++                    sscanf(zmcore->fileinfo, "%ld %lo %o", &zmcore->filesize,
++                        &zmcore->filetime, &zmcore->filemode);
++
+                 }
+             }        
+         }
+@@ -1677,7 +1680,8 @@
+     buf = zmcore->mainBuf;
+     strcpy((char *)buf, (char *)zmcore->filename);
+     cnt = strlen((char *)buf) + 1;
+-    sprintf((char *)buf + cnt, "%ld 0 0 0", zmcore->filesize); 
++    sprintf((char *)buf + cnt, "%ld %lo %o 0",
++        zmcore->filesize, zmcore->filetime, zmcore->filemode); 
+     cnt = cnt + strlen((char *)buf + cnt) + 1;
+     crcxmInit(&crc);
+     for (x = 0; x < cnt; x++)
