@@ -20,7 +20,7 @@ use File::Temp ();
 require 'shellwords.pl';
 
 use vars qw( $VERSION );
-$VERSION = "0.88";
+$VERSION = "0.885";
 
 my $diff = "/usr/bin/diff";		# full path to the diff program
 my $mv = "/bin/mv";				# the mv executable (used when exploding)
@@ -45,7 +45,8 @@ my $test_failures = 0;
 my $test_dumpstats = 0;
 my $explicit_config = undef;	# the test file if -f is specified
 
-my %configs;
+my %configs;    # keeps track of which config files we've looked at
+my %defines;    # contains all definitions given by -D on the cmdline.
 
 my $exit_value_hack = 0;		# todo: remove me
 
@@ -54,6 +55,7 @@ my $usage = <<EOL;
 usage: tmtest [opts] [test files or dirs...]
        -o: dump actual results rather than just go/nogo
        -d: diff actual results against expected results
+       -D: define a header as if it were defined in the testfile.
        -cNUM: extract the given command
        -hNUM: extract the given here document
        -e: extract all cmds and heredocs
@@ -69,6 +71,7 @@ my $extract_cmd = undef;	# deprecated?
 my $custom_file = undef;
 my $debug = 0;
 my $editor = 0;
+my $test_is_from_stdin = 0; # 1 if "-" on cmdline so test is read from stdin.
 
 # Need to know if signal raised on child is sigint.
 my %signum;
@@ -79,6 +82,7 @@ Getopt::Long::Configure ("bundling");
 exit(1) unless Getopt::Long::GetOptions(
 	"dump|o"		=> \$dump_results,
 	"explode|e"		=> \$explode_file,
+    "define-header|D=s" => \%defines,
 	"diff|d"		=> \$diff_results,
 	"syntax|Z"		=> \$syntax_check,	# deprecated?
 	"heredoc=s"		=> \$extract_here,	# deprecated?
@@ -116,9 +120,10 @@ if($editor) {
 
 if( @ARGV == 1 && $ARGV[0] eq "-" ) {
 	# One last argument is a dash?  Read from stdin.
+    $test_is_from_stdin = 1;
 	my @file = <STDIN>;
 	my $test = read_test(\@file, "STDIN", File::Spec->rel2abs(File::Spec->curdir()), 1);
-	process_test( $test );
+	process_test($test, \@file);
 } elsif(@ARGV) {
 	for(@ARGV) {
 		if( -f $_ ) {
@@ -387,10 +392,11 @@ sub explode_file
 		mkdir($dir, 0777) or die "Couldn't create dir $dir: $!";
 	}
 
-	my $ncmds = @{$test->{cmds}};
+	my $ncmds = 0;
+    $ncmds = @{$test->{cmds}} if exists $test->{cmds};
 
 	printf("Exploding $ncmds cmd%s from %s...\n",
-		0+@{$test->{cmds}} == 1 ? "" : "s", $testfile);
+		$ncmds == 1 ? "" : "s", $testfile);
 
 	# if the output directory already contains files, we'll move
 	# them into a different directory to avoid confusion.
@@ -430,7 +436,7 @@ sub explode_file
 
 EOL
 
-	for(my $i=1; $i <= @{$test->{cmds}}; $i++) {
+	for(my $i=1; $i <= $ncmds; $i++) {
 		my $istr = ('0' x (length($ncmds) - length($i))) . $i;
 		my $filename = "$dir/cmd-$istr";
 		my $herename = "$dir/here-$istr";
@@ -438,6 +444,7 @@ EOL
 
 		# if this command is actually a crfile, create the file
 		if($cs->{crfile}) {
+            $herename .= "_" . $cs->{name};
 			my $name = create_crfile($cs, $test, $herename);
 			printf("  created $name\n");
 			$test->{header}->{lc $cs->{name}} = {value => $name};
@@ -446,8 +453,8 @@ EOL
 		}
 
 		my $cmd = get_executable_command($test, $cs);
-		my $here = get_heredoc($cs, should_interpolate($test->{header}, "stdin") ?
-				$test->{header} : undef);
+		my $here = get_heredoc($cs,
+            should_interpolate($test->{header}) ?  $test->{header} : undef);
 
 		# create the cmd file
 		open(FD, ">$filename") or die "Couldn't open $filename: $!\n";
@@ -510,6 +517,7 @@ sub clean_results
 sub process_test
 {
 	my $test = shift;
+    my $origfile = shift;
 
 	if($syntax_check) {
 		print_test($test);
@@ -578,7 +586,7 @@ sub process_test
 			}
 		} elsif($diff_results) {
 			if($results && !$test->{success}) {
-				diff_results($test, $results);
+				diff_results($test, $results, $origfile);
 			}
 		} else {
 			print("$outword " . $test->{file} . "\n");
@@ -657,6 +665,7 @@ sub has_here_doc
 	my $cmd = shift;
 	my $filename = shift;
 	my $line = shift;
+	my $startline = shift;
 
 	# need to collect the command line into tokens like the shell would
 	my @words = subtle_shellwords($cmd);
@@ -682,7 +691,7 @@ sub has_here_doc
 			 $here_word = $2;
 			 defined($here_word) or parse_die($filename, $line,
 				"You must specify a word for the here doc.\n");
-			 $3 and parse_die($filename, $line, "Garbage after here word: $3\n");
+			 $3 and parse_die($filename, $startline, "Garbage after here word: \"$3\"\n");
 		 } else {
 			 $cmdbeg .= ' ' if $cmdbeg && length($cmdbeg);
 			 $cmdbeg .= $_;
@@ -690,7 +699,7 @@ sub has_here_doc
 	}
 
 	if($isfile && $cmdtrail) {
-		 parse_die($filename, $line, "garbage after here doc: '$cmdtrail'\n");
+		 parse_die($filename, $startline, "Garbage after here word: \"$cmdtrail\"\n");
 	}
 
 	# $debug and print "CmdWithoutHereWord: $cmdbeg\n";
@@ -892,6 +901,11 @@ sub read_test
 			}
 		}
 	}
+
+    # override config files using options supplied by -D on cmdline.
+    for(keys %defines) {
+        $test->{header}->{$_} = {key => $_, value => $defines{$_}};
+    }
 	
 	# add the default headers
 	$test->{header}->{'curfile'} = { key => 'curfile', value => $filename };
@@ -906,11 +920,13 @@ sub read_test
 		my $header;
 		my ($here, $orig, $post);
 		my $herepre;
+        my $startline = $line;
 
 		# "hash" refers to the "#" character, not the hash data structure.
-		if($file->[$line] =~ /^(\#)?(\s*\S+\s*)\:(.*)$/) {
+		if($file->[$line] =~ /^(\#)?(\s*\S+\s*)(\:|\+?\=)(.*)$/) {
 			# this line definitely looks like a header
-			$header = {hash => ($1||''), key => $2, pkey => 1, value => $3};
+			$header = {hash => ($1||''), key => $2, pkey => 1,
+                value => $4, sep => $3 };
 		} elsif($line == 0 && $file->[$line] =~ /^\#(.*)$/) {
 			# grandfathered feature: if the first line is a comment
 			# but doesn't look like a header then it is assumed to be
@@ -993,6 +1009,9 @@ sub read_test
 		my($hdrline, $hdrrest) = ($1, $2);
 
 		if($hdrline =~ /^\s*(exec)?file(?:$|\s*=)/i) {
+            if($hdrline =~ /\<\<\-?\S+\s+(\S.*)/) {
+                parse_die($filename, $startline, "Garbage after here word: \"$1\"\n");
+            }
 			if($hdrrest =~ /\S/) {
 				parse_die($filename, $line,
 					"We don't support multi-line file declarations.\n");
@@ -1050,6 +1069,14 @@ sub read_test
 			}
 		}
 
+        # append new value to old value if header was defined with '+='.
+        if($header->{sep} && substr($header->{sep},0,1) eq '+') {
+            my $oldval = '';
+            $oldval = $test->{header}->{lc $header->{key}}->{value}
+                if exists $test->{header}->{lc $header->{key}};
+            $header->{value} = ($oldval ? $oldval.' ' : '') . $header->{value};
+        }
+
 		$debug && print "  ... stored header \"" . $header->{key} . "\".\n";
 		push @{$test->{headers}}, $header;
 
@@ -1073,6 +1100,7 @@ sub read_test
 	# output clause.
 	while($line < @$file) {
 		$debug && print((@desc ? "... continuing desc in" : "begin") . " block...\n");
+        my $startline = $line;
 
 		# desc is all blank lines or lines beginning with a hash.
 		while( $line < @$file && $file->[$line] =~ /^\s*(?:\#.*)?$/ ) {
@@ -1091,7 +1119,7 @@ sub read_test
 		my @command = ();
 		# header hack -- different continuation if it's a header vs. a command.
 		# luckily we don't allow continued file headers.  Needs a rewrite.
-		if($file->[$line] =~ /^\s*\S+\s*\:\s*(?:exec)?file(.*)$/ &&
+		if($file->[$line] =~ /^\s*\S+\s*(?:\:|\+?\=)\s*(?:exec)?file(.*)$/ &&
 			defined($1) && $1 !~ /\<\<\S/)
 		{
 			# File declaration without a heredoc.  Need to check for continuation.
@@ -1128,7 +1156,7 @@ sub read_test
 		my $here = undef;	# tab-stripped here document
 		my $post;		# the heredoc terminator
 		
-		my ($cmdbeg, $strip_tabs, $here_word) = has_here_doc($cmd, $filename, $line);
+		my ($cmdbeg, $strip_tabs, $here_word) = has_here_doc($cmd, $filename, $line, $startline);
 		if($here_word) {
 			($here, $orig) = read_heredoc(\$line, $file, $filename, $here_word, $strip_tabs);
 			$post = $file->[$line];
@@ -1305,7 +1333,7 @@ sub print_results
 			for(@{$header->{desc}}) { print "$_\n"; }
 		}
 		print(($header->{hash} || '') .
-			($header->{pkey} ? $header->{origkey}.':' : '') .
+			($header->{pkey} ? $header->{origkey}.$header->{sep} : '') .
 			$header->{herepre} . $header->{origvalue} .
 			$header->{herepost} . "\n");
 	}
@@ -1340,8 +1368,32 @@ sub diff_results
 {
 	my $test = shift;
 	my $results = shift;
+    # this argument is only passed when test_is_from_stdin==0
+    # and therefore $test->file doesn't actually point to a file.
+    my $origfile = shift;
 
-	open(FD, "|-", $diff, "-u", $test->{file}, "-")
+    my $unlink;
+    my $file = $test->{file};
+
+    # This is a bit of a hassle.  Since we're already using stdin
+    # to pass diff the test results, if tmtest was passed the testfile
+    # on stdin, it needs to dump it to a file.
+    if($test_is_from_stdin) {
+        die "Internal error!" unless defined $origfile;
+
+        my $fh;
+        ($fh, $file) = File::Temp::tempfile("STDIN-$$.XXXXXX",
+            DIR => File::Spec->tmpdir);
+        print $fh @$origfile;
+        close($fh);
+
+        $unlink = $file;
+    }
+
+    # quick sanity check before launching the diff command.
+    die "$file doesn't exist!\n" unless -f $file;
+
+	open(FD, "|-", $diff, "-u", $file, "-")
 		or die "Couldn't start $diff: $!\n";
 	my $oldfd = select(FD);
 	print_results($test, $results);
@@ -1352,6 +1404,10 @@ sub diff_results
 	# 1 if they're different, and 2 if there was an error.  So,
 	# we'll assume success if it returns 0 or 1 and didn't signal or core.
 	die "$diff returned $?: $!\n" unless $? == (0<<8) || $? == (1<<8);
+
+    if(defined $unlink) {
+        unlink($unlink) or die "Could not unlink $unlink: $!\n";
+    }
 }
 
 

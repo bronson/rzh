@@ -91,7 +91,8 @@ by indenting the following line.
     author: jimmy james, joe parrot,
 	   joebob, jasper, and jed.
 
-If whitespace is significant, use a here document instead of indentation
+If whitespace within the header is significant, use a here document
+instead of indentation
 to continue the header.  The here document key must be the last item
 on the line.  "stdout: content <<EOL" and "stdout: <<EOL content" are
 considered errors.  Of course, the parameters passed to L</"Create Files">
@@ -102,9 +103,15 @@ are legal.
         sucess!!
     EOL
 
-If a header starts with "file=" or "execfile=", then it is treated
-as a create file instead of a regular textual header.  
-See L</"Create Files"> for more.
+Headers may also start with C<=> and C<+=>.  C<=> is exactly equivalent
+to C<:>, but C<+=> appends the new value to the current value.
+
+    files = one two
+    files = $(files) three
+    files += four       # exactly equivalent to the above line
+    # now files is "one two three four".
+
+Some headers have a little magic.  See L</"Create Files"> for more.
 
 =head2 Interpolation
 
@@ -299,27 +306,45 @@ tmtest running the test is too old, the test will be skipped.
 =item executable
 
 Normally tmtest discovers which executable to run via the PATH
-environment variable.  However, during development, there's slim
-chance that the program under test will be in your PATH.  Use
-"executable" to specify the executable file.
+environment variable.  However, during development, there's
+a very good
+chance that the program under test will not be in your PATH.
+Use "executable" to explicitly specify the executable's location.
 
-The format is "name=value", where name is the name as it appears
-in the testfile, and value is its full path.  For instance, the
+The format is "name=value", where name is the name of the command
+as it appears
+in the testfile ("C<echo>"), and value is its full path ("C</usr/bin/echo>").
+For instance, the
 following lines cause /usr/local/bin/banner to be called with the
 string "hello":
 
     executable: banner=/usr/local/bin/banner
     banner hello
 
-In an executable header, C<$(PATH)> will be replaced with the full
-path of the directory containing the configuration file currently being parsed.  Therefore,
-If you know that the command is in the same directory
+In an executable header, C<$(curpath)> will be replaced with the full
+path of the directory containing the configuration file currently being parsed
+(see L</"curpath">).
+Therefore,
+if you know that the command is in the same directory
 as the config file, you can simply put this line in your config file:
 
-    executable: mycmd=$(PATH)/mycmd
+    executable: mycmd=$(curpath)/mycmd
 
 Now, for all testfiles in that directory, running "mycmd" actually
-executes $(PATH)/mycmd.
+executes $(curpath)/mycmd.
+
+Note that executable replaces the command found alone anywhere in the
+command line.  For instance, if you're specifying the executable for
+mycmd, the following will all replace mycmd with the full path:
+
+  mycmd
+  exec mycmd
+  exec "mycmd"
+
+But these won't:
+
+  .mycmd
+  "exec mycmd"
 
 =item eachline
 

@@ -2,16 +2,68 @@
 # Scott Bronson
 # 4 Nov 2004
 
-rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
+# This file tests transferring files of many different sizes.
 
-mkdir /tmp/tmtest-zmodem
-mkfifo /tmp/tmtest-zmodem-pipe
-randfile --seed=1 --size=512 > /tmp/tmtest-zmodem-data
+# Should include subtest=1 header or something.
+#     automatically reads config from current dir, no need for -f tmtest.conf.
+#     no need for the eachline -- results are collected directly.
+#     shows the output of each subtest in the main test.
 
-# sz outputs sometimes outputs a ^M on stderr so we need to just discard it.
-sz -q /tmp/tmtest-zmodem-data 2>/dev/null < /tmp/tmtest-zmodem-pipe | \
-	(cd /tmp/tmtest-zmodem && exec rzh -rq > /tmp/tmtest-zmodem-pipe)
+eachline: s/tmtest-\d+\.\S+\./tmtest-PID.ID./
 
-randfile --seed=1 --size=512 --check < /tmp/tmtest-zmodem/tmtest-zmodem-data
+rzsz.test: file = <<-EOL
+    rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
+
+    mkdir /tmp/tmtest-zmodem
+    mkfifo /tmp/tmtest-zmodem-pipe
+    randfile --seed=1 --size=$(size) > /tmp/tmtest-zmodem-data
+
+    # sz outputs sometimes outputs a ^M on stderr so we need to just discard it.
+    sz -q /tmp/tmtest-zmodem-data 2>/dev/null < /tmp/tmtest-zmodem-pipe | \
+        (cd /tmp/tmtest-zmodem && exec rzh -rq > /tmp/tmtest-zmodem-pipe)
+
+    randfile --seed=1 --size=$(size) --check < /tmp/tmtest-zmodem/tmtest-zmodem-data
+    ------ STDOUT: exit code 0 - no error
+EOL
+
+
+tmtest -f tmtest.conf -D size=0 $(rzsz.test)
+tmtest -f tmtest.conf -D size=1 $(rzsz.test)
+tmtest -f tmtest.conf -D size=2 $(rzsz.test)
+tmtest -f tmtest.conf -D size=3 $(rzsz.test)
+tmtest -f tmtest.conf -D size=4 $(rzsz.test)
+tmtest -f tmtest.conf -D size=8 $(rzsz.test)
+tmtest -f tmtest.conf -D size=12 $(rzsz.test)
+tmtest -f tmtest.conf -D size=127 $(rzsz.test)
+tmtest -f tmtest.conf -D size=128 $(rzsz.test)
+tmtest -f tmtest.conf -D size=255 $(rzsz.test)
+tmtest -f tmtest.conf -D size=256 $(rzsz.test)
+tmtest -f tmtest.conf -D size=257 $(rzsz.test)
+tmtest -f tmtest.conf -D size=1021 $(rzsz.test)
+tmtest -f tmtest.conf -D size=1023 $(rzsz.test)
+tmtest -f tmtest.conf -D size=1024 $(rzsz.test)
+tmtest -f tmtest.conf -D size=1025 $(rzsz.test)
+tmtest -f tmtest.conf -D size=7919 $(rzsz.test)
+tmtest -f tmtest.conf -D size=8192 $(rzsz.test)
+tmtest -f tmtest.conf -D size=524289 $(rzsz.test)
 
 ------ STDOUT: exit code 0 - no error
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test
+ok   tmtest-PID.ID.test

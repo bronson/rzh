@@ -53,6 +53,16 @@ output from -h1 to the command specified by -c1:
 Or an even easier way of running the test manually is to use the L<-e>
 option.
 
+=item B<-D> B<--define-header>
+
+Allows you to define headers on the command line as if they were
+defined in the test file itself.  Headers defined with -D override
+headers from all config files, but are overridden by headers in
+the test file.
+
+  -D name=value
+  --define-header name=value
+
 =item B<-d> B<--diff>
 
 Prints a diff of the expected results against the actual results.
