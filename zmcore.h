@@ -39,9 +39,10 @@ typedef struct {
     size_t bufsize;
     size_t maxTx;
     long goodOffset;
-    long filesize;
-    long filetime;
-    int filemode;
+    long filesize;  /* Size of file in bytes, 0 if unspecified. */
+    long filetime;  /* As defined by the zmodem protocol: the number
+                       of seconds since 1 Jan 1970, 0 for unspecified. */
+    int filemode;   /* Permissions on file.  Defaults to 0644. */
     int gotSpecial;
     int gotHeader;
     int moreData;

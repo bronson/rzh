@@ -42,3 +42,9 @@ patch -p1 < ../patch-3       -- clean up api, add error handling
   (strerror is a part of ANSI X3.159-1989)
 - Changed "Read" and "Write" to "Send" and "Receive".  That's clearer.
 - Removed <time.h> from zmcore -- that's a unix-specific thing.
+
+
+patch -p1 < ../patch-4       -- add a few comments
+
+- Solidify the behavior of the fields using comments.
+
