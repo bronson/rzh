@@ -124,8 +124,7 @@ void extModemWriteBlock(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t max)
     return;
 }
 
-long g_mode;
-   
+
 void extFileSetInfo(ZMCORE *zmcore,
                     ZMEXT *zmext,
                     unsigned char *filename, 

@@ -2,7 +2,8 @@
  * Scott Bronson
  * 14 Jan 2004
  *
- * This file is covered by the MIT License.
+ * This file is released under the MIT license.  This is basically the
+ * same as public domain, but absolves the author of liability.
  */
 
 #include "fifo.h"

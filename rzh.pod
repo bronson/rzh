@@ -4,11 +4,12 @@ B<rzh> - Receive ZMODEM Here
 
 =head1 SYNOPSIS
 
-The following example transfers the /etc/hosts file
-on tt.asplode.com to the download directory in the
-current directory on the local host.
+To transfer the /etc/hosts file
+on tt.asplode.com (which is only reachable via www.asplode.com),
+to the current directory:
 
-  $ rzh ./downloads
+  $ rzh
+  $ ssh www.asplode.com
   $ ssh tt.asplode.com
   $ sz /etc/hosts
 
@@ -16,11 +17,11 @@ current directory on the local host.
 
 rzh sits in the background listening for a zmodem transfer request.
 When it sees one, it springs to action and sucks down the file.
-Other than downloading zmodem files, it will never get in your way.
-
-It's also very useful for copying files between directories on the
-local machine.  Simply rzh in the destination directory, then cd
+It can also be useful for copying files between directories on the
+local machine.  Simply run rzh in the destination directory, then cd
 to the source directory and use sz to copy the files.
+
+When you're done transferring files, you can use ^D or "exit" to stop rzh.
 
 =head1 OPTIONS
 
@@ -58,29 +59,25 @@ Prints the version and exits.
 
 =head1 NOTES
 
-If rzh is running as root, it will not mark downloaded files as executable.
+If rzh is running as root, it will not mark downloaded files as executable
+or special.  0666 is the most permissive permission allowed.  If running
+as a regular user, of course, it preserves as much of the permissions
+as it can.
 
-To ensure that we don't mess up filenames in other character encodings,
+To ensure that we don't mess up other character encodings,
 we do not attempt to sanitize the filename.  This is a feature.
 I'll fix this if somebody can show that's it's a security hazard.
 
 We don't support directories in the filename.  If the sending program
 includes directories (i.e. "a/b/file.ext"), we'll fail to create the file.
 
-=head1 BUGS
-
-The code is a lot more complex than it should be.  I first wrote this to
-lrzsz, and when that didn't work, adapted the resulting monstrosity to pdpzm.
-Things would be a lot simpler if I were to rewrite zio with coroutines.
-Unfortunately, this probably won't happen in the near future.
+rzh launches whatever shell is specified in the SHELL environment variable.
+If it's not specified, it tries to launch _PATH_BSHELL as specified at build
+time on the local machine (this is typically "/bin/sh").
 
 =head1 SEE ALSO
 
 L<rz(1)>, L<sz(1)>
-
-=head1 LICENSE
-
-Following pdpzm and sqlite's examples, rzh is placed into the public domain.
 
 =head1 AUTHORS
 

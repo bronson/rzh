@@ -1,7 +1,8 @@
 /* bgio.c
  * Scott Bronson
  *
- * Starts up background I/O.
+ * Starts up background I/O.  This file was derived from ancient BSD code.
+ * It should probably fall under some sort of BSD license.
  */
 
 #include <pty.h>

@@ -2,7 +2,8 @@
  * Scott Bronson
  * 14 Jan 2004
  *
- * This file is contributed to the public domain.
+ * This file is released under the MIT license.  This is basically the
+ * same as public domain, but absolves the author of liability.
  */
 
 #include <unistd.h>

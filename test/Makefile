@@ -8,3 +8,7 @@ randfile: randfile.c mt19937ar.c mt19937ar.h Makefile
 clean:
 	rm -f randfile
 
+test: randfile
+	./tmtest
+
+.PHONY: test

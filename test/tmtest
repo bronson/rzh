@@ -1645,12 +1645,32 @@ sub check_results
 	my $test = shift;
 	my $results = shift;
 
-	# return 0 if they differ, 1 if the same
-	return 0 if
-		$test->{"stdout"} ne $results->{"stdout"} ||
-		$test->{"stderr"} ne $results->{"stderr"} ||
-		$test->{"exitvalue"} != $results->{"exitvalue"};
+	my $success = (
+		$test->{"stdout"} eq $results->{"stdout"} &&
+		$test->{"stderr"} eq $results->{"stderr"} &&
+		$test->{"exitvalue"} == $results->{"exitvalue"}
+		);
 
-	return 1;
+	if($debug) {
+		if($test->{"stdout"} ne $results->{"stdout"}) {
+			print "  -> stdout didn't match!\n";
+			print "  -> wanted <<<" . $test->{"stdout"} .
+				">>> but got <<<" . $results->{"stdout"} . ">>>\n";
+		}
+		if($test->{"stderr"} ne $results->{"stderr"}) {
+			print "  -> stderr didn't match!\n";
+			print "  -> wanted <<<" . $test->{"stderr"} .
+				">>> but got <<<" . $results->{"stderr"} . ">>>\n";
+		}
+		if($test->{"exitvalue"} != $results->{"exitvalue"}) {
+			print "  -> exitvalue didn't match!  got " .
+				$test->{"exitvalue"} . ", wanted " .
+				$results->{"exitvalue"} . ".\n";
+		}
+		print "  -> output matches expected output.\n" if $success;
+	}
+
+	# return undef if they differ, 1 if the same
+	return $success;
 }
 

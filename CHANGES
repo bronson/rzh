@@ -1,20 +1,31 @@
+5 Nov 2004: tagged version 0.1 (r21)
+
+
 todo: add progress disply
+todo: add specifying a subshell (-c).
 todo: add tmtest regression harness (make tmtest support tmpfiles first)
+         test perms as root (how?  fakeroot?), timeouts, bad filenames/paths
 todo: fix timeouts
+todo: add sending (-s)
+todo: Do I need to worry about DosSleep?  (not if we make extModem modular)
 todo: what happens if the dldir is write-protected?
 todo: what happens if I try to clobber a file?
 todo: add a startup message, something like
       "Saving to /home/bronson/downloads on lea.rinspin.com\n"?
 todo: make it equivalent to "rzh -r" if argv[0] =~ /rz$/
 todo: make it equivalent to "rzh -s" if argv[0] =~ /sz$/ (and add send function)
+todo: add exchanging (-x)
 todo: there's no way to preserve symlinks, etc.  Maybe use tar
 	to implement an automatic archival mode?
 
 
-SUMMARY
-a whole bunch of sz compliance tests...  Problems found in most
-of the items below will probably indicate a issue with pdpzm.
+todo: pdpzm appears 30-60 times slower than lrzsz??
+	./randfile --size=38648893 --seed=27045 > tt
+	time ./test.rzsz tt 		(takes ~2.4 seconds)
+	time ./test.rzh tt			(takes ~95 seconds)
 
+
+todo: a whole bunch of sz compliance tests should be run:
 todo: do we support sz - (from stdin, no file size sent)
 todo: support sz -y and -Y (open file for writing unconditionally -- clobber)
 todo: support sz -a (convert newlines)
@@ -31,3 +42,16 @@ todo: do we work with sz -r (resume interrupted file transfer)?
 todo: do we work with sz -w (limit the window size)?
 todo: we need to support -L with various packetsizes.
 todo: do we work with sz -T (testing bad packets mode)?
+
+todo: pdzm doesn't support the ZXSPARS sparse file operation flag.
+		(But it does support ZRPOS.  Not sure what this means.)
+	Or the ZTLZW/ZTCRYPT/ZTRLE flags
+	Or ZMCLOB (clobber existing file)
+	Or ZMPROT (protect existing file)
+	Or ZMAPND (append to existing file)
+	Or a bunch of other flags.
+	http://msdn.microsoft.com/library/en-us/randz/protocol/zmodem_zfile_file_attribute_packet.asp?frame=true
+
+todo: Change all line endings to Unix.  Right now they're a mix of DOS and Unix.
+	I'll probably never do this -- it makes diffing a pain)
+

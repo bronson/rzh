@@ -1,7 +1,11 @@
 /* scan.c
+ * 15 Jan 2004
  * Scott Bronson
  *
  * Watches for a zmodem start request.
+ *
+ * This file is released under the MIT license.  This is basically the
+ * same as public domain, but absolves the author of liability.
  */
 
 #include <string.h>

@@ -1,8 +1,11 @@
 /* pdcomm.h
+ * 1 Nov 2004
  * Scott Bronson
  *
- * Shim to attach to the pdpzm library
- * This file is in the public domain.
+ * Communication between rzh and pdpzm.
+ *
+ * This file is released under the MIT license.  This is basically the
+ * same as public domain, but absolves the author of liability.
  */
 
 

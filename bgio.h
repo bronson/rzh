@@ -2,6 +2,7 @@
  * Scott Bronson
  *
  * Starts up background I/O.
+ * This file is MIT licensed.
  */
 
 // Command to run in child.  If NULL, starts the default shell.

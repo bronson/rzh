@@ -1,8 +1,8 @@
 # rzh Makefile
 # Scott Bronson
-# This file is BSD licensed.
+# This file is MIT licensed (public domain, but removes author liability).
 
-VERSION=0.1
+VERSION=0.11
 
 # pdpzm files
 CSRC=zmcore.c zmfr.c error.c pdcomm.c fifo.c bgio.c scan.c zio.c rzh.c
@@ -45,3 +45,8 @@ clean:
 	rm -f $(CSRC:.c=.o)
 	rm -f $(CSRC:.c=.dep)
 	rm -f $(CSRC:.c=.dep.*)
+
+test: rzh
+	(cd test; $(MAKE) test)
+
+.PHONY: test

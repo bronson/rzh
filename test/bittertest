@@ -7,13 +7,13 @@
 # randomly chosen attributes at the zmodem transfer programs.
 # It stops if it finds an error.
 
-# -e: examine generated file sizes.
-# -l: tells bittertest to use lrzsz to receive instead of rzh.
-# -n: the maximum number of tests to perform (default: unlimited)
-# -r: random seed (by default 1)
-# -s: maximum file size (by default 64 megabytes).
-#     note that we use rand^4, so the avg file size is smaller than 32 MB
-# -t: specifies the temporary directory to use (default: /tmp)
+# -e  : just output generated file sizes (to test the random number generator).
+# -l  : tells bittertest to use lrzsz to receive instead of rzh.
+# -n N: the maximum number of tests to perform (default: unlimited)
+# -r N: random seed (default: 1)
+# -s N: maximum file size (by default 64 megabytes).
+#     	note that we use rand^4, so the avg file size is smaller than 32 MB
+# -t P: specifies the temporary directory to use (default: /tmp)
 
 # The output:
 # seq:   sequence number -- starts at 1 and counts upward.
@@ -27,9 +27,8 @@
 # total: the wallclock time needed to do all 3.
 
 
-# I just don't trust errexit or pipefail so I check the result of each
-# command manually.  Amazingly, they both appear to have bugs on some
-# platforms!
+# Both errexit and pipefail appear to be pretty buggy.   I check the
+# result of each command manually to ensure we always catch failures.
 
 # todo: should randomize the filename too.
 # todo: what about batching?

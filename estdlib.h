@@ -1,5 +1,8 @@
-/* Shim to implement emalloc() and efree() required by the pdpzm code.
- * This file is in the public domain.
+/* estdlib.h
+ * Scott Bronson
+ *
+ * Shim to implement emalloc() and efree() required by the pdpzm code.
+ * This file is released to the public domain.
  */
 
 #ifndef ESTDLIB_INCLUDED

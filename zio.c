@@ -2,9 +2,13 @@
  * Scott Bronson
  * 14 Jan 2004
  *
- * This file is way too complex because I originally wrote it for
- * lrzsz.  Problem is, lrzsz is hopelessly complex so I salvaged
- * this for pdpzm.  Now it is in dire need of a rewrite...
+ * Handles the asynchronous I/O.
+ *
+ * This file is released under the MIT license.  This is basically the
+ * same as public domain, but absolves the author of liability.
+ *
+ * This file is more complex than it should be because I originally wrote
+ * it for lrzsz.  Some cleanup is definitely in order.
  */
 
 #include <stdio.h>

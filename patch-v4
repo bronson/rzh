@@ -4,7 +4,8 @@ I started this at the beginning of the year but gave up when I
 was spending all my time debugging the lrzsz code.  Given the
 state of its code, I'm amazed that it works at all.  When I
 found the pdpzm library, I ported the code over and everything
-just started working.  Put a bullet in lrzsz.
+just started working.  Put a bullet in lrzsz.  Well, except that
+lrzsz is serously fast.
 
 This patch is just for posterity.
 
