@@ -40,6 +40,7 @@ typedef struct {
     size_t maxTx;
     long goodOffset;
     long filesize;
+    time_t filetime;
     int gotSpecial;
     int gotHeader;
     int moreData;

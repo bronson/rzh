@@ -1,0 +1,55 @@
+=head1 NAME
+
+B<rzh> - Receive ZMODEM Here
+
+=head1 SYNOPSIS
+
+The following example transfers the /etc/hosts file
+on tt.asplode.com to the download directory on the local host.
+
+  $ cd downloads
+  $ rzh
+  $ ssh tt.asplode.com
+  $ sz /etc/hosts
+
+=head1 DESCRIPTION
+
+rzh sits in the background listening for a zmodem transfer request.
+When it sees one, it springs to action and sucks down the file.
+Other than downloading zmodem files, it will never get in your way.
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<-q>
+
+Suppresses the printing of status messages.  Error messages are still
+printed though.  Status goes to stdout and errors go to stderr.
+
+=back
+
+=head1 NOTES
+
+If rzh is running as root, it will not mark downloaded files as executable.
+
+=head1 SEE ALSO
+
+L<rz(1)>, L<sz(1)>
+
+=head1 LICENSE
+
+In in tribute to pdpzm and sqlite, this program is placed in the public
+domain.
+
+=head1 AUTHORS
+
+=over 4
+
+=item Scott Bronson <S<bronson@rinspin.com>>
+
+=item zmodem code by Paul Edwards <S<kerravon@w3.to>>
+
+=back
+
+=cut

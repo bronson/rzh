@@ -13,16 +13,13 @@
 #ifndef ZMEXT_INCLUDED
 #define ZMEXT_INCLUDED
 
-#include <stddef.h>
-#include <stdio.h>
-
 #include <pdcomm.h>
 
 #define ZMEXT_MAXFILES 40
 
 typedef struct
 {
-    FILE *fq;
+    int fd;
     PDCOMM *pdcomm;
     char fileList[ZMEXT_MAXFILES][FILENAME_MAX];
     int fileUpto;

@@ -16,6 +16,10 @@ static ZMCORE zmc;
 static ZMEXT zme;
 
 
+#define xstringify(x) #x
+#define stringify(x) xstringify(x)
+
+
 void process_args(int argc, char **argv)
 {
 	// Don't want to use getopt because it might cause licensing issues.
@@ -23,11 +27,24 @@ void process_args(int argc, char **argv)
 	while(*++argv) {
 		char *cp = *argv;
 		if(cp[0] == '-') {
-			if(cp[1] == 'D') {
+			switch(cp[1]) {
+			case 'D':
 				fprintf(stderr, "Waiting for debugger to attach to pid %d...\n", (int)getpid());
 				while(1)
 					;
+				break;
+
+			case 'V':
+				printf("rzh version %s\n", stringify(VERSION));
+				exit(0);
+
+			default:
+				fprintf(stderr, "Unknown option passed to rzh: %c\n", cp[1]);
+				exit(1);
 			}
+		} else {
+			fprintf(stderr, "Unknown argument passed to rzh: %s\n", cp);
+			exit(1);
 		}
 	}
 }

@@ -2,6 +2,8 @@
 # Scott Bronson
 # This file is BSD licensed.
 
+VERSION=0.1
+
 # pdpzm files
 CSRC=zmcore.c zmfr.c error.c pdcomm.c
 
@@ -13,6 +15,9 @@ OBJ=$(CSRC:.c=.o)
 COPTS+=-isystem .
 COPTS+=-Wall -Werror
 COPTS+=-g
+COPTS+=-DVERSION=$(VERSION)
+
+all: rzh doc
 
 rzh: $(OBJ) rzh.o
 	$(CC) $(OBJ) rzh.o -o rzh
@@ -30,8 +35,14 @@ rzh: $(OBJ) rzh.o
 
 -include $(CSRC:.c=.dep)
 
+doc: rzh.1
+
+%.1: %.pod
+	pod2man -c "" -r "" -s 1 $< > $@
+
 clean:
 	rm -f rzh rzh.o
+	rm -f rzh.1
 	rm -f $(CSRC:.c=.o)
 	rm -f $(CSRC:.c=.dep)
 	rm -f $(CSRC:.c=.dep.*)

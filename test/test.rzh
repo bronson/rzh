@@ -14,10 +14,12 @@ if [ $# = "0" ]; then
 	exit 0
 fi
 
-RZ=`pwd`/../rzh
-SZ=/usr/bin/sz
-DIR=/tmp/rzsz.test.$$
-PIPE=$DIR/pipe
+CWD=`pwd`
+RZ="$CWD/../rzh"
+SZ="/usr/bin/sz --disable-timeouts"
+
+DIR="/tmp/rzsz.test.$$"
+PIPE="$DIR/pipe"
 
 mkdir $DIR
 mkdir $DIR/files

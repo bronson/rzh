@@ -12,6 +12,14 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <time.h>
+#include <utime.h>
 
 #include <error.h>
 #include <trav.h>
@@ -123,13 +131,20 @@ void extFileSetInfo(ZMCORE *zmcore,
                     long *offset,
                     int *skip)
 {
+    // Won't mark anything executable if we're running with root privs.
+    int mask = geteuid() ? 07777 : 06666;
+    zmcore->filesize = 0;
+    zmcore->filetime = time(NULL);
+    long mode = 0644;
+
     unused(fileinfo);
     unused(zmcore);
-    printf("opening file %s\n", filename);
-    zmext->fq = fopen((char *)filename, "wb");
-    if (zmext->fq == NULL)
+
+    sscanf(fileinfo, "%ld %lo %lo", &zmcore->filesize, &zmcore->filetime, &mode);
+    zmext->fd = creat((char *)filename, mode & mask);
+    if(zmext->fd == -1)
     {
-        printf("failed to open file %s\n", filename);
+        fprintf(stderr, "failed to open file %s: %s\n", filename, strerror(errno));
     }
     *offset = 0;
     *skip = 0;
@@ -138,16 +153,29 @@ void extFileSetInfo(ZMCORE *zmcore,
 
 void extFileWriteData(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t bytes)
 {
+    ssize_t cnt;
     unused(zmcore);
-    fwrite(buf, bytes, 1, zmext->fq);
+    cnt = write(zmext->fd, buf, bytes);
+    if(cnt != bytes) {
+        fprintf(stderr, "write failed: didn't write all data!\n");
+    }
     return;
 }
 
 void extFileFinish(ZMCORE *zmcore, ZMEXT *zmext)
 {
+    struct utimbuf tv;
+
     unused(zmcore);
-    printf("closing file\n");
-    fclose(zmext->fq);
+    unused(zmext);
+
+    close(zmext->fd);
+
+    if(zmcore->filetime) {
+        tv.actime = tv.modtime = zmcore->filetime;
+        utime(zmcore->filename, &tv);
+    }
+
     return;
 }
 
@@ -160,17 +188,16 @@ int extFileGetFile(ZMCORE *zmcore,
 
     unused(zmcore);    
     strcpy((char *)buf, zmext->fileList[zmext->fileUpto++]);
-    printf("opening file %s\n", buf);
-    zmext->fq = fopen((char *)buf, "rb");
-    if (zmext->fq == NULL)
+    zmcore->filetime = 0;
+    zmext->fd = open((char *)buf, O_RDONLY);
+    if (zmext->fd == -1)
     {
-        printf("failed to open file %s\n", buf);
+        fprintf(stderr, "failed to open file %s: %s\n", buf, strerror(errno));
     }
     else
     {
-        fseek(zmext->fq, 0, SEEK_END);
-        *filesize = ftell(zmext->fq);
-        rewind(zmext->fq);
+        *filesize = (long)lseek(zmext->fd, 0, SEEK_END);
+        lseek(zmext->fd, 0, SEEK_SET);
         ret = 1;
     }
     return (ret);
@@ -179,8 +206,7 @@ int extFileGetFile(ZMCORE *zmcore,
 void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset)
 {
     unused(zmcore);
-    fseek(zmext->fq, offset, SEEK_SET);
-    printf("seeking to offset %lu\n", offset);
+    lseek(zmext->fd, offset, SEEK_SET);
     return;
 }
 
@@ -191,7 +217,6 @@ int extFileGetData(ZMCORE *zmcore,
                    size_t *bytes)
 {
     unused(zmcore);
-    *bytes = fread(buf, 1, max, zmext->fq);
-    printf("read %d bytes\n", *bytes);
+    *bytes = read(zmext->fd, buf, max);
     return (*bytes != 0);
 }
