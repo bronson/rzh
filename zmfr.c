@@ -6,7 +6,7 @@
 /*********************************************************************/
 /*********************************************************************/
 /*                                                                   */
-/*  zmfr - functions to operate on files.                            */
+/*  zmfr - friend functions that operate on zmcore + zmext           */
 /*                                                                   */
 /*********************************************************************/
 
@@ -47,7 +47,7 @@ void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset)
  *  - fileinfo: the zmodem info string for the file
  *  - filemode: the mode as read from fileinfo
  *  - filesize: the supposed file size as read from fileinfo
- *  - filetime: the file modification time as read from fileinfo (it's (time_t)(-1) if unspecified)
+ *  - filetime: the file modification time as read from fileinfo
  *
  *  and you may set the following zmcore parameters to affect the transfer:
  *  - goodOffset: ?? (defaults to 0)
@@ -103,7 +103,7 @@ void extFileReceiveFinish(ZMCORE *zmcore, ZMEXT *zmext)
  *
  *  you may set the following parameters:
  *  - filemode: the mode (defaults to 0644).
- *  - filetime: the file modification time (defaults to (time_t)(-1) -- unspecified).
+ *  - filetime: the file modification time (defaults to the current time).
  */
 void extFileSendStart(ZMCORE *zmcore, ZMEXT *zmext)
 {

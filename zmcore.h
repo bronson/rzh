@@ -14,7 +14,6 @@
 #define ZMCORE_INCLUDED
 
 #include <stdio.h>
-#include <time.h>
 
 #include "zmext.h"
 
@@ -41,7 +40,7 @@ typedef struct {
     size_t maxTx;
     long goodOffset;
     long filesize;
-    time_t filetime;
+    long filetime;
     int filemode;
     int gotSpecial;
     int gotHeader;
