@@ -46,7 +46,9 @@ size_t pdcommWriteBuf(PDCOMM *pdcomm, void *buf, size_t num)
 
 size_t pdcommReadBuf(PDCOMM *pdcomm, void *buf, size_t num)
 {
-	return read(STDIN_FILENO, buf, num);
+	ssize_t cnt;
+	cnt = read(STDIN_FILENO, buf, num);
+	return cnt;
 }
 
 

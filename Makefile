@@ -3,10 +3,7 @@
 # This file is BSD licensed.
 
 # pdpzm files
-CSRC=zmcore.c zmfr.c error.c
-
-# shims
-CSRC+=pdcomm.c main.c
+CSRC=zmcore.c zmfr.c error.c pdcomm.c
 
 
 # ------------------------ #
@@ -17,8 +14,8 @@ COPTS+=-isystem .
 COPTS+=-Wall -Werror
 COPTS+=-g
 
-rzh: $(OBJ)
-	$(CC) $(OBJ) -o rzh
+rzh: $(OBJ) rzh.o
+	$(CC) $(OBJ) rzh.o -o rzh
 
 %.o: %.c
 	$(CC) $(COPTS) -c $<
@@ -34,7 +31,7 @@ rzh: $(OBJ)
 -include $(CSRC:.c=.dep)
 
 clean:
-	rm -f rzh
+	rm -f rzh rzh.o
 	rm -f $(CSRC:.c=.o)
 	rm -f $(CSRC:.c=.dep)
 	rm -f $(CSRC:.c=.dep.*)

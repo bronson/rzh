@@ -1,0 +1,11 @@
+pdzm doesn't support the ZXSPARS sparse file operation flag.
+	Or the ZTLZW/ZTCRYPT/ZTRLE flags
+	Or ZMCLOB (clobber existing file)
+	Or ZMPROT (protect existing file)
+	Or ZMAPND (append to existing file)
+	Or a bunch of other flags.
+
+In getFileData(), we copy the filename using strncpy.
+	Problem is, we never actually null-terminate the filename itself.
+	Is this OK?  It appears to be...
+

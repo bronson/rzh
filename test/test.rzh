@@ -23,6 +23,8 @@ mkdir $DIR
 mkdir $DIR/files
 mkfifo $PIPE
 
+echo "Performing rzh test in $DIR"
+
 $SZ -q $* < $PIPE | (cd $DIR/files && exec $RZ > $PIPE)
 
 FAIL=0
@@ -30,9 +32,17 @@ for I in $*; do
 	B=`basename $I`
 	O=$DIR/files/$B
 	cmp "$I" "$O"
+	# we're sure the filename matches since the cmp succeeded
 	if [ $? = "0" ]; then
-		echo "$B" checks out.
-		rm -f "$O"
+		STI=`stat -c "%a %Y" "$I"`
+		STO=`stat -c "%a %Y" "$O"`
+		if [ "$STI" = "$STO" ]; then
+			echo "$B" checks out.
+			rm -f "$O"
+		else
+			echo "STAT FAIL!  input file: \"$STI\"  output file: \"$STO\""
+			FAIL=1
+		fi
 	else
 		FAIL=1
 	fi
