@@ -574,7 +574,9 @@ static void getFileData(ZMCORE *zmcore)
                 (char *)zmcore->mainBuf,
                 sizeof zmcore->filename);
         zmcore->filename[FILENAME_MAX - 1] = '\0';
-        pos = memchr(zmcore->mainBuf, '\0', zmcore->bufsize - 1);
+        pos = memchr(zmcore->mainBuf, 
+                     '\0',
+                     (size_t)(zmcore->bufPos - zmcore->mainBuf) - 1);
         if (pos != NULL)
         {
             pos++;
@@ -1181,22 +1183,22 @@ static void sendBin32Header(ZMCORE *zmcore)
     }
     if (ALLOK)
     {
-        zmcore->ch = (unsigned char)crc32Byte4(&crc);
+        zmcore->ch = ~(unsigned char)crc32Byte4(&crc);
         sendDLEChar(zmcore);
     }
     if (ALLOK)
     {
-        zmcore->ch = (unsigned char)crc32Byte3(&crc);
+        zmcore->ch = ~(unsigned char)crc32Byte3(&crc);
         sendDLEChar(zmcore);
     }
     if (ALLOK)
     {
-        zmcore->ch = (unsigned char)crc32Byte2(&crc);
+        zmcore->ch = ~(unsigned char)crc32Byte2(&crc);
         sendDLEChar(zmcore);
     }
     if (ALLOK)
     {
-        zmcore->ch = (unsigned char)crc32Byte1(&crc);
+        zmcore->ch = ~(unsigned char)crc32Byte1(&crc);
         sendDLEChar(zmcore);
     }
     return;
