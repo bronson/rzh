@@ -102,9 +102,10 @@ void receive_file()
 		de = end.tv_sec + ((double)end.tv_nsec)/1000000000;
 		total = de - ds;
 		long tbt = zmc.total_bytes_transferred;
+		long tft = zmc.total_files_transferred;
 
-		fprintf(stderr, "%ld files and %ld bytes transferred in %.5f secs: %.3f kbyte/sec\r\n",
-				zmc.total_files_transferred, tbt, total, (tbt/total/1024.0));
+		fprintf(stderr, "%ld file%s and %ld bytes transferred in %.5f secs: %.3f kbyte/sec\r\n",
+				tft, (tft==1?"":"s"), tbt, total, (tbt/total/1024.0));
 	}
 
 	set_timeout(0, 0);
