@@ -1,0 +1,15 @@
+# Test Rz/Sz
+# Scott Bronson
+# 4 Nov 2004
+
+rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
+
+mkdir /tmp/tmtest-zmodem
+mkfifo /tmp/tmtest-zmodem-pipe
+randfile --seed=1 --size=512 > /tmp/tmtest-zmodem-data
+
+sz -q /tmp/tmtest-zmodem-data < /tmp/tmtest-zmodem-pipe | \
+	(cd /tmp/tmtest-zmodem && exec rzh -r > /tmp/tmtest-zmodem-pipe)
+
+randfile --seed=1 --size=512 --check < /tmp/tmtest-zmodem/tmtest-zmodem-data
+

@@ -1,0 +1,1603 @@
+Patch by against lrzsz-0.12.21.
+
+I started this at the beginning of the year but gave up when I
+was spending all my time debugging the lrzsz code.  Given the
+state of its code, I'm amazed that it works at all.  When I
+found the pdpzm library, I ported the code over and everything
+just started working.  Put a bullet in lrzsz.
+
+This patch is just for posterity.
+
+
+
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/man/lrz.1 lrzsz-0.12.21/man/lrz.1
+--- lrzsz-0.12.21.orig/man/lrz.1	2004-01-13 23:50:57.000000000 -0800
++++ lrzsz-0.12.21/man/lrz.1	2004-01-20 14:00:54.000000000 -0800
+@@ -216,6 +216,18 @@
+ .B "-h, --help"
+ give help screen.
+ .TP
++.B "-i, --interactive"
++Launches an interactive subshell that continually scans for the
++zmodem start sequence and downloads all files it sees.  See the
++--subcommand option.  If a download accidentally
++gets triggered during an interactive session, five Control-X's in a
++row should stop it.  If your downloads are having issues, try using
++the -e option as well.
++.TP
++.B "--cmd, --subcommand"
++Specifies the subcommand that should be launched.  An interactive
++session using the user's shell ($SHELL) is used by default.
++.TP
+ .B "-m N, --min-bps N"
+ Stop transmission if BPS-Rate (Bytes Per Second) falls below N for a
+ certain time (see --min-bps-time option).
+@@ -290,7 +302,8 @@
+ tenths of seconds. This is ignored if timeout handling is turned of
+ through the 
+ .B O 
+-option.
++option.  If using the -i interactive mode, the timeout only applies
++while a transfer is occurring.
+ .TP
+ .B "--tcp-client ADDRESS:PORT"
+ Act as a tcp/ip client: Connect to the given port.
+@@ -390,7 +403,8 @@
+ .I "rsh"
+ or
+ .I "rksh"
+-\.
++\.  If the -i command is specified, it launches a subshell of
++the same type as SHELL (unless you specify --subcommand too).
+ .TP
+ .B ZMODEM_RESTRICTED
+ lrz enters the more restricted mode if the variable is set.
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/man/lsz.1 lrzsz-0.12.21/man/lsz.1
+--- lrzsz-0.12.21.orig/man/lsz.1	2004-01-13 23:50:57.000000000 -0800
++++ lrzsz-0.12.21/man/lsz.1	2004-01-21 02:51:51.000000000 -0800
+@@ -415,7 +415,11 @@
+ to the port in between. See
+ .B SECURITY
+ for details.
+-
++.TP
++.B "--port N"
++Supplied with the --tcp-server option, tells lsz to listen on port N.
++lsz will not run if the port is already in use.
++If --port is not supplied, lsz will select an available high-numbered port.
+ .TP
+ .B "-u"
+ Unlink the file after successful transmission.
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/Makefile.am lrzsz-0.12.21/src/Makefile.am
+--- lrzsz-0.12.21.orig/src/Makefile.am	2004-01-13 23:50:57.000000000 -0800
++++ lrzsz-0.12.21/src/Makefile.am	2004-01-16 01:17:45.000000000 -0800
+@@ -1,5 +1,5 @@
+ bin_PROGRAMS=lrz lsz
+-lrz_SOURCES=lrz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c tcp.c lsyslog.c canit.c
++lrz_SOURCES=lrz.c timing.c zperr.c zio.c crctab.c rbsb.c zm.c protname.c tcp.c lsyslog.c
+ lsz_SOURCES=lsz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c tcp.c lsyslog.c canit.c
+ noinst_HEADERS = timing.h zglobal.h zmodem.h
+ datadir = $(prefix)/@DATADIRNAME@
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/canit.c lrzsz-0.12.21/src/canit.c
+--- lrzsz-0.12.21.orig/src/canit.c	2004-01-13 23:50:57.000000000 -0800
++++ lrzsz-0.12.21/src/canit.c	2004-01-21 03:42:43.000000000 -0800
+@@ -30,6 +30,12 @@
+ #include <errno.h>
+ #include <getopt.h>
+ 
++#ifdef USE_ZIO
++#include "fifo.h"
++#include "zio.h"
++#endif
++
++
+ /* send cancel string to get the other end to shut up */
+ void
+ canit (int fd)
+@@ -38,9 +44,17 @@
+ 	{
+ 		24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0
+ 	};
++
++#ifdef USE_ZIO
++	/* canit is _always_ called with fd=STDOUT_FILENO 
++	 * so we'll simply flush master out */
++	purgeline(outma.fd);
++	write_outma(canistr,strlen(canistr));
++#else
+ 	purgeline(fd);
+ 	write(fd,canistr,strlen(canistr));
+ 	if (fd==0)
+ 		write(1,canistr,strlen(canistr));
++#endif
+ }
+ 
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/fifo.c lrzsz-0.12.21/src/fifo.c
+--- lrzsz-0.12.21.orig/src/fifo.c	1969-12-31 16:00:00.000000000 -0800
++++ lrzsz-0.12.21/src/fifo.c	2004-01-21 00:23:51.000000000 -0800
+@@ -0,0 +1,184 @@
++/* fifo.c
++ * Scott Bronson
++ * 14 Jan 2004
++ *
++ * This file may be distributed under the terms outlined in the GNU GPL.
++ */
++
++#include <unistd.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <errno.h>
++#include "fifo.h"
++
++
++/* name is an arbitrary name for the fifo */
++fifo *fifo_init(char *name, fifo *f, int initsize)
++{
++	f->name = name;
++	f->len = initsize;
++	f->beg = f->end = 0;
++	f->error = 0;
++	f->fd = 0;
++	f->state = FIFO_IN_USE;
++
++	f->buf = (char*)malloc(initsize);
++	if(f->buf == NULL) return NULL;
++
++	return f;
++}
++
++
++/* erase all data in the fifo */
++void fifo_clear(fifo *f)
++{
++	f->beg = f->end = 0;
++}
++
++
++/* bytes in the fifo */
++int fifo_count(fifo *f)
++{
++	return (f->len + f->end - f->beg) % f->len;
++}
++
++
++/* free space in the fifo */
++int fifo_avail(fifo *f)
++{
++	return (f->len + f->beg - f->end - 1) % f->len;
++}
++
++
++/* add a character to the fifo */
++/* make sure there's room before calling! */
++void fifo_unsafe_addchar(fifo *f, char c)
++{
++	f->buf[f->end++] = c;
++	if(f->end == f->len) f->end = 0;
++}
++
++
++int fifo_unsafe_getchar(fifo *f)
++{
++	int c = f->buf[f->beg++];
++	if(f->beg == f->len) f->beg = 0;
++	return c;
++}
++
++
++/* add a block of data to the fifo */
++/* make sure there's room before calling! */
++void fifo_unsafe_append(fifo *f, const char *buf, int cnt)
++{
++	if(f->end + cnt > f->len) {
++		int n = f->len - f->end;
++		memcpy(f->buf+f->end, buf, n);
++		memcpy(f->buf, buf+n, cnt - n);
++	} else {
++		memcpy(f->buf+f->end, buf, cnt);
++	}
++
++	f->end = (f->end + cnt) % f->len;
++}
++
++
++void fifo_unsafe_prepend(fifo *f, const char *buf, int cnt)
++{
++	if(f->beg < cnt) {
++		int n = cnt - f->beg;
++		memcpy(f->buf, buf + n, f->beg);
++		memcpy(f->buf + f->len - n, buf, n);
++		f->beg = f->len - n;
++	} else {
++		f->beg -= cnt;
++		memcpy(f->buf + f->beg, buf, cnt);
++	}
++}
++
++
++static void print_fifo(fifo *f)
++{
++	printf("fifo at %08lX  ", (long)f);
++	printf("%s  ", f->name);
++	printf("beg=%d end=%d len=%d", (int)f->beg, (int)f->end, (int)f->len);
++	printf("  count=%d avail=%d\r\n", (int)fifo_count(f), (int)fifo_avail(f));
++}
++
++
++/* partially fill the fifo by calling read() */
++/* only performs a single read call. */
++
++int fifo_read(fifo *f, int fd)
++{
++	char buf[BUFSIZ];
++	int cnt;
++
++	cnt = fifo_avail(f);
++	if(cnt > sizeof(buf)) {
++		cnt = sizeof(buf);
++	}
++
++	cnt = read(fd, buf, cnt);
++	if(cnt > 0) {
++		fifo_unsafe_append(f, buf, cnt);
++	} else if(cnt < 0) {
++		if(errno == EAGAIN) {
++			cnt = 0;
++		} else {
++			f->error = (errno ? errno : -1);
++		}
++	}
++
++	return cnt;
++}
++
++
++/* attempt to empty the fifo by calling write() */
++int fifo_write(fifo *f, int fd)
++{
++	int cnt = 0;
++
++	if(f->beg < f->end) {
++		cnt = write(fd, f->buf+f->beg, f->end-f->beg);
++		if(cnt < 0) f->error = (errno ? errno : -1);
++		if(cnt > 0) f->beg += cnt;
++	} else if(f->beg > f->end) {
++		cnt = write(fd, f->buf+f->beg, f->len-f->beg);
++		if(cnt < 0) f->error = (errno ? errno : -1);
++		if(cnt > 0) {
++			f->beg = (f->beg + cnt) % f->len;
++			if(f->beg == 0) {
++				int n = write(fd, f->buf, f->end);
++				if(n < 0) { cnt = n; f->error = (errno ? errno : -1); }
++				if(n > 0) { f->beg = n; cnt += n; }
++			}
++		}
++	}
++
++	return cnt;
++}
++
++
++/* copies as much of the contents of one fifo as possible
++ * to the other */
++
++int fifo_copy(fifo *src, fifo *dst)
++{
++	int cnt = fifo_count(src);
++	int ava = fifo_avail(dst);
++	if(ava < cnt) cnt = ava;
++
++	if(src->beg + cnt > src->len) {
++		int n = src->len - src->beg;
++		fifo_unsafe_append(dst, src->buf+src->beg, n);
++		fifo_unsafe_append(dst, src->buf, cnt - n);
++	} else {
++		fifo_unsafe_append(dst, src->buf+src->beg, cnt);
++	}
++
++	src->beg = (src->beg + cnt) % src->len;
++	return cnt;
++}
++
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/fifo.h lrzsz-0.12.21/src/fifo.h
+--- lrzsz-0.12.21.orig/src/fifo.h	1969-12-31 16:00:00.000000000 -0800
++++ lrzsz-0.12.21/src/fifo.h	2004-01-21 00:29:58.000000000 -0800
+@@ -0,0 +1,50 @@
++/* fifo.h
++ * Scott Bronson
++ * 14 Jan 2004
++ *
++ * This file may be distributd under the terms outlined in the GNU GPL.
++ */
++
++
++typedef struct {
++	char *name;
++	char *buf;
++	int beg, end, len;	/* must be signed */
++	int fd, error;		/* used by clients */
++	int state;
++} fifo;
++
++
++/* fifo states */
++#define FIFO_UNUSED 0
++#define FIFO_IN_USE 1
++#define FIFO_CLOSED 2
++
++
++#define fifo_empty(f) 		((f)->beg == (f)->end)
++
++
++/* allocates a fifo initialially able to hold initsize chars
++ * and will grow to hold maxsize chars if needed.
++ * Returns NULL if fifo memory couldn't be allocated.
++ */
++fifo* fifo_init(char *name, fifo *f, int initsize);
++
++void fifo_clear(fifo *f);      /* empty the fifo of all data */
++int fifo_count(fifo *f);    /* number of bytes of data in the fifo */
++int fifo_avail(fifo *f);    /* free bytes left in the fifo */
++
++void fifo_unsafe_addchar(fifo *f, char c);
++int fifo_unsafe_getchar(fifo *f);
++
++/* stuff a memory block into the fifo */
++void fifo_unsafe_append(fifo *f, const char *buf, int cnt);
++void fifo_unsafe_prepend(fifo *f, const char *buf, int cnt);
++
++/* fill the fifo by calling read() */
++int fifo_read(fifo *f, int fd);
++/* empty the fifo by calling write() */
++int fifo_write(fifo *f, int fd);
++/* copy as much of the data from src as will fit into dst */
++int fifo_copy(fifo *src, fifo *dst);
++
+Binary files lrzsz-0.12.21.orig/src/lrz-nosub and lrzsz-0.12.21/src/lrz-nosub differ
+Binary files lrzsz-0.12.21.orig/src/lrz-orig and lrzsz-0.12.21/src/lrz-orig differ
+Binary files lrzsz-0.12.21.orig/src/lrz-subs and lrzsz-0.12.21/src/lrz-subs differ
+Binary files lrzsz-0.12.21.orig/src/lrz-zio and lrzsz-0.12.21/src/lrz-zio differ
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/lrz.c lrzsz-0.12.21/src/lrz.c
+--- lrzsz-0.12.21.orig/src/lrz.c	2004-01-13 23:51:18.000000000 -0800
++++ lrzsz-0.12.21/src/lrz.c	2004-01-21 04:42:02.000000000 -0800
+@@ -27,10 +27,23 @@
+ #define SS_NORMAL 0
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <signal.h>
+ #include <ctype.h>
+ #include <errno.h>
+ #include <getopt.h>
++#include <setjmp.h>
++#ifdef SUBSHELL
++#include <paths.h>
++#include <termios.h>
++#include <unistd.h>
++#include <sys/types.h>
++#include <sys/time.h>
++#include <sys/resource.h>
++#include <sys/wait.h>
++#include <pty.h>
++#include <utmp.h>
++#endif
+ 
+ #ifdef HAVE_UTIME_H
+ #include <utime.h>
+@@ -40,6 +53,10 @@
+ #include "long-options.h"
+ #include "xstrtoul.h"
+ #include "error.h"
++#ifdef USE_ZIO
++#include "fifo.h"
++#include "zio.h"
++#endif
+ 
+ #ifndef STRICT_PROTOTYPES
+ extern time_t time();
+@@ -97,6 +114,12 @@
+ enum zm_type_enum protocol;
+ int	under_rsh=FALSE;
+ int zmodem_requested=FALSE;
++#ifdef SUBSHELL
++int spawn_subshell=FALSE;
++char *subshell_command=NULL;
++int child_pid, master, slave;
++struct termios stdin_termios;
++#endif
+ 
+ #ifdef SEGMENTS
+ static int chinseg = 0;	/* Number of characters received in this data seg */
+@@ -137,6 +160,9 @@
+ static int sys2 __P ((const char *s));
+ static void zmputs __P ((const char *s));
+ static size_t getfree __P ((void));
++#ifdef SUBSHELL
++static void go_interactive __P ((int argc, char **argp));
++#endif
+ 
+ static long buffersize=32768;
+ static unsigned long min_bps=0;
+@@ -238,6 +264,11 @@
+ 	{"o_sync", no_argument, NULL, 5},
+ 	{"tcp-server", no_argument, NULL, 6},
+ 	{"tcp-client", required_argument, NULL, 7},
++#ifdef SUBSHELL
++	{"interactive", no_argument, NULL, 'i'},
++	{"cmd", required_argument, NULL, 8},
++	{"subcommand", required_argument, NULL, 8},
++#endif
+ 	{NULL,0,NULL,0}
+ };
+ 
+@@ -282,7 +313,7 @@
+     parse_long_options (argc, argv, show_version, usage1);
+ 
+ 	while ((c = getopt_long (argc, argv, 
+-		"a+bB:cCDeEhm:M:OprRqs:St:uUvw:XZy",
++		"a+bB:cCDeEhim:M:OprRqs:St:uUvw:XZy",
+ 		long_options, (int *) 0)) != EOF)
+ 	{
+ 		unsigned long int tmp;
+@@ -309,6 +340,9 @@
+ 		case 'e': Zctlesc = 1; break;
+ 		case 'h': usage(0,NULL); break;
+ 		case 'H': Lzmanag= ZF1_ZMCRC; break;
++#ifdef SUBSHELL
++		case 'i': spawn_subshell=TRUE; break;
++#endif
+ 		case 'j': junk_path=TRUE; break;
+ 		case 'm':
+ 			s_err = xstrtoul (optarg, &tmpptr, 0, &tmp, "km");
+@@ -463,6 +497,11 @@
+ 			if (!tcp_server_address)
+ 				error(1,0,_("out of memory"));
+ 			break;
++#ifdef SUBSHELL
++		case 8:
++			subshell_command=(char*)strdup(optarg);
++			break;
++#endif
+ 		default:
+ 			usage(2,NULL);
+ 		}
+@@ -547,18 +586,41 @@
+ 
+ 		/* we need to switch to tcp mode */
+ 		tcp_socket=tcp_connect(buf);
++#ifndef USE_ZIO
+ 		dup2(tcp_socket,0);
+ 		dup2(tcp_socket,1);
++#endif
+ 	}
+ 
+-	io_mode(0,1);
+-	readline_setup(0, HOWMANY, MAX_BLOCK*2);
+ 	if (signal(SIGINT, bibi) == SIG_IGN) 
+ 		signal(SIGINT, SIG_IGN);
+ 	else
+ 		signal(SIGINT, bibi);
+ 	signal(SIGTERM, bibi);
+ 	signal(SIGPIPE, bibi);
++
++#ifdef SUBSHELL
++	if(spawn_subshell) {
++		go_interactive(npats, patts);
++		/* this call never returns. */
++	}
++#endif
++
++	io_mode(0,1);
++
++#ifdef USE_ZIO
++	if(tcp_flag==3) {
++		zio_setup(tcp_socket, -1, -1, tcp_socket, NULL);
++	} else {
++		zio_setup(0, -1, -1, 1, NULL);
++	}
++	if(!no_timeout) {
++		set_timeout(Rxtimeout/10,0);
++	}
++#else
++	readline_setup(0, HOWMANY, MAX_BLOCK*2);
++#endif
++	
+ 	if (wcreceive(npats, patts)==ERROR) {
+ 		exitcode=0200;
+ 		canit(STDOUT_FILENO);
+@@ -570,9 +632,9 @@
+ 	{
+ 		fputs("\r\n",stderr);
+ 		if (exitcode)
+-			fputs(_("Transfer incomplete\n"),stderr);
++			fputs(_("rz Transfer incomplete\n"),stderr);
+ 		else
+-			fputs(_("Transfer complete\n"),stderr);
++			fputs(_("rz Transfer complete\n"),stderr);
+ 	}
+ 	exit(exitcode);
+ }
+@@ -620,6 +682,10 @@
+ "  -E, --rename                rename any files already existing\n"
+ "      --errors N              generate CRC error every N bytes (debugging)\n"
+ "  -h, --help                  Help, print this usage message\n"
++#ifdef SUBSHELL
++"  -i, --interactive           launch an interactive subshell\n"
++"      --cmd --subcommand      subshell command to run instead of $SHELL\n"
++#endif
+ "  -m, --min-bps N             stop transmission if BPS below N\n"
+ "  -M, --min-bps-time N          for at least N seconds (default: 120)\n"
+ "  -O, --disable-timeouts      disable timeout code, wait forever for data\n"
+@@ -648,6 +714,275 @@
+ 	exit(exitcode);
+ }
+ 
++
++#ifdef SUBSHELL
++static int
++scan_for_zrqinit(int argc, char **argp)
++{
++	static const char *startstr = "**\030B00"; 
++
++	int c;
++	int gotrz;
++	int gotfin;
++	int starcnt;
++
++	goto toploop;
++
++	while(1) {
++		write_outso(c);
++
++toploop:
++		gotrz=0;
++		gotfin=0;
++		starcnt=0;
++
++		/* Need to be careful or we won't print 'r's.
++		 * presumably the remote machine will be automated and burst
++		 * "rz\r" into one packet.  If not, no big deal, the user just
++		 * sees the rz\r onscreen. */
++		c = read_master();
++		if(c == 'r' && !fifo_empty(&inma)) {
++			c = read_master();
++			if(c == 'z') {
++				c = read_master();
++				if(c == '\r') {
++					gotrz = 1;
++					c = read_master();
++				} else {
++					write_outso('r');
++					write_outso('z');
++					continue;
++				}
++			} else {
++				write_outso('r');
++				continue;
++			}
++		}
++
++		if(c == '*') {
++
++			do {
++				starcnt += 1;
++				if(fifo_empty(&inma) && !gotrz) {
++				/* if fifo empties, it's probably just the user typing stars.
++				 * Worst case, he just gets some garbage onscreen.  */
++					for(;starcnt;starcnt--) write_outso('*');
++				}
++				c = read_master();
++			} while(c == '*');
++
++			if(c == '\030') {
++				gotfin = 1;
++				c = read_master();
++				if(c == 'B') {
++					gotfin = 2;
++					c = read_master();
++					if(c == '0') {
++						gotfin = 3;
++						c = read_master();
++						if(c == '0') {
++							if(fifo_avail(&inma) < strlen(startstr)) {
++								/* this, i think, is effectively impossible */
++								fprintf(stderr, "Not enough buffer space to start transfer -- please try again.\n");
++								canit(1);
++							} else {
++								fifo_unsafe_prepend(&inma, startstr,
++										strlen(startstr));
++								if(!no_timeout) {
++									/* why bother?
++									float it,fr;
++									fr = modff(Rxtimeout/10.0,&it);
++									set_timeout(it, fr*1000000); */
++									set_timeout(Rxtimeout/10,0);
++								}
++								io_mode(0,1);
++								printf("\r\nDoing the RECEIVE!\r\n");
++								wcreceive(argc, argp);
++								io_mode(0,0);
++								set_timeout(0,0);
++								
++							}
++							goto toploop;
++						}
++					}
++				}
++			}
++		} else {
++			/* didn't recognize character */
++			continue;
++		}
++
++		/* no session could be started so write data back out */
++		if(gotrz) {
++			write_outso('r');
++			write_outso('z');
++			write_outso('\r');
++		}
++
++		for(;starcnt;starcnt--) write_outso('*');
++
++		if(gotfin >= 1) write_outso('\030');
++		if(gotfin >= 2) write_outso('B');
++		if(gotfin >= 3) write_outso('0');
++	}
++}
++
++
++static void
++window_resize(int dummy)
++{
++	struct  winsize win;
++
++	ioctl(0, TIOCGWINSZ, (char*)&win);
++	ioctl(slave, TIOCSWINSZ, (char*)&win);
++
++	kill(child_pid, SIGWINCH);
++}
++
++
++static void
++terminate(void)
++{
++	tcsetattr(0, TCSAFLUSH, &stdin_termios);
++	close(master);
++	printf("\nrz exited.\n");
++	exit(0);
++}
++
++
++static void
++sigchild(int dummy)
++{
++	int pid;
++
++	while ((pid = wait3(&dummy, 0, 0)) > 0) {
++		if (pid == child_pid) {
++			terminate();
++		}
++	}
++}
++
++
++static void
++do_child()
++{
++	char *shell;
++	char *name;
++
++	shell = getenv("SHELL");
++	if(!shell) {
++		shell = _PATH_BSHELL;
++	}
++
++	name = strrchr(shell, '/');
++	if(name) {
++		name++;
++	} else {
++		name = shell;
++	}
++
++	setsid();
++	ioctl(slave, TIOCSCTTY, 0);
++
++	close(master);
++	dup2(slave, 0);
++	dup2(slave, 1);
++	dup2(slave, 2);
++	close(slave);
++
++	if(subshell_command) {
++		execl(shell, name, "-c", subshell_command, 0);
++	} else {
++		execl(shell, name, "-i", 0);
++	}
++}
++
++
++static void
++insi_to_outma_backchannel(void)
++{
++	if(insi.error) {
++		zio_bail(&insi, "backchannel read");
++	}
++
++	if(outma.error) {
++		zio_bail(&insi, "backchannel write");
++	}
++
++	/* copy stdin to the master */
++	fifo_copy(&insi, &outma);
++}
++
++
++static void
++print_error(fifo *f)
++{
++	if(f->error) {
++		printf("Error %d on %s: %s\n", f->error,
++				f->name, strerror(f->error));
++	}
++}
++
++
++void
++go_interactive(int argc, char **argp)
++{
++	char *shell;
++	struct  winsize win;
++	struct termios tt;
++	jmp_buf exit;
++	int err;
++
++	tcgetattr(0, &stdin_termios);
++	ioctl(0, TIOCGWINSZ, (char *)&win);
++	if (openpty(&master, &slave, NULL, &stdin_termios, &win) < 0) {
++		error(0,errno,_("openpty failed"));
++		kill(0, SIGTERM);
++		terminate();
++	}
++
++	tt = stdin_termios;
++	cfmakeraw(&tt);
++	tt.c_lflag &= ~ECHO;
++	tcsetattr(0, TCSAFLUSH, &tt);
++
++	signal(SIGCHLD, sigchild);
++
++	child_pid = fork();
++	if(child_pid < 0) {
++		error(0,errno,_("could not fork"));
++		kill(0, SIGTERM);
++		terminate();
++	}
++
++	if(child_pid == 0) {
++		do_child();
++		error(0,errno,_("could not launch subshell"));
++		kill(0, SIGTERM);
++		terminate();
++	}
++
++	signal(SIGWINCH, window_resize);
++
++	if((err=setjmp(exit)) != 0) {
++		if(err == 2) {
++			/* apparently we bailed due to an error.  Try to find
++			 * and print it */
++			print_error(&inma);
++			if(outso.buf) print_error(&outso);
++			if(insi.buf) print_error(&insi);
++			print_error(&outma);
++		}
++		terminate();
++	}
++
++	zio_setup(master, STDOUT_FILENO, STDIN_FILENO, master, &exit);
++	set_backchannel_fn(&insi_to_outma_backchannel);
++	scan_for_zrqinit(argc, argp);
++}
++#endif
++
++
+ /*
+  * Let's receive something already.
+  */
+@@ -2180,12 +2515,12 @@
+ 		p=strpbrk(s,"\335\336");
+ 		if (!p)
+ 		{
+-			write(1,s,strlen(s));
++			write_outma(s,strlen(s));
+ 			return;
+ 		}
+ 		if (p!=s)
+ 		{
+-			write(1,s,(size_t) (p-s));
++			write_outma(s,(size_t) (p-s));
+ 			s=p;
+ 		}
+ 		if (*p=='\336')
+Binary files lrzsz-0.12.21.orig/src/lsz-orig and lrzsz-0.12.21/src/lsz-orig differ
+Binary files lrzsz-0.12.21.orig/src/lsz-zio and lrzsz-0.12.21/src/lsz-zio differ
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/lsz.c lrzsz-0.12.21/src/lsz.c
+--- lrzsz-0.12.21.orig/src/lsz.c	2004-01-13 23:50:57.000000000 -0800
++++ lrzsz-0.12.21/src/lsz.c	2004-01-21 04:58:37.000000000 -0800
+@@ -216,12 +216,13 @@
+ static int zrqinits_sent=0;
+ static int play_with_sigint=0;
+ 
++extern int tcp_server_port;
++
+ /* called by signal interrupt or terminate to clean things up */
+ RETSIGTYPE
+ bibi (int n)
+ {
+ 	canit(STDOUT_FILENO);
+-	fflush (stdout);
+ 	io_mode (io_mode_fd,0);
+ 	if (n == 99)
+ 		error (0, 0, _ ("io_mode(,2) in rbsb.c not implemented\n"));
+@@ -299,6 +300,7 @@
+   {"tcp-server", no_argument, NULL, 6},
+   {"tcp-client", required_argument, NULL, 7},
+   {"no-unixmode", no_argument, NULL, 8},
++  {"port", required_argument, NULL, 9},
+   {NULL, 0, NULL, 0}
+ };
+ 
+@@ -580,6 +582,12 @@
+ 			}
+ 			break;
+ 		case 8: no_unixmode=1; break;
++		case 9:
++			s_err = xstrtoul (optarg, NULL, 0, &tmp, "ck");
++			tcp_server_port = tmp;
++			if (s_err != LONGINT_OK)
++				STRTOL_FATAL_ERROR (optarg, _("port"), s_err);
++			break;
+ 		default:
+ 			usage (2,NULL);
+ 			break;
+@@ -711,7 +719,14 @@
+ 		io_mode_fd=1;
+ 	}
+ 	io_mode(io_mode_fd,1);
++#ifdef USE_ZIO
++	zio_setup(0, -1, -1, 1, NULL);
++	if(!no_timeout) {
++		set_timeout(Rxtimeout/10,0);
++	}
++#else
+ 	readline_setup(io_mode_fd, 128, 256);
++#endif
+ 
+ 	if (signal(SIGINT, bibi) == SIG_IGN)
+ 		signal(SIGINT, SIG_IGN);
+@@ -725,8 +740,7 @@
+ 
+ 	if ( protocol!=ZM_XMODEM) {
+ 		if (protocol==ZM_ZMODEM) {
+-			printf("rz\r");
+-			fflush(stdout);
++			write_outma("rz\r", 3);
+ 		}
+ 		countem(npats, patts);
+ 		if (protocol == ZM_ZMODEM) {
+@@ -774,7 +788,6 @@
+ #endif
+ 		}
+ 	}
+-	fflush(stdout);
+ 
+ 	if (Cmdstr) {
+ 		if (getzrxinit()) {
+@@ -787,7 +800,6 @@
+ 		Exitcode=0200;
+ 		canit(STDOUT_FILENO);
+ 	}
+-	fflush(stdout);
+ 	io_mode(io_mode_fd,0);
+ 	if (Exitcode)
+ 		dm=Exitcode;
+@@ -799,9 +811,9 @@
+ 	{
+ 		fputs("\r\n",stderr);
+ 		if (dm)
+-			fputs(_("Transfer incomplete\n"),stderr);
++			fputs(_("sz Transfer incomplete\n"),stderr);
+ 		else
+-			fputs(_("Transfer complete\n"),stderr);
++			fputs(_("sz Transfer complete\n"),stderr);
+ 	}
+ 	exit(dm);
+ 	/*NOTREACHED*/
+@@ -2094,7 +2106,6 @@
+ 		 *  sent by the receiver, in place of setjmp/longjmp
+ 		 *  rdchk(fdes) returns non 0 if a character is available
+ 		 */
+-		fflush (stdout);
+ 		while (rdchk (io_mode_fd)) {
+ #ifdef READCHECK_READS
+ 			switch (checked)
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/make lrzsz-0.12.21/src/make
+--- lrzsz-0.12.21.orig/src/make	1969-12-31 16:00:00.000000000 -0800
++++ lrzsz-0.12.21/src/make	2004-01-21 04:37:29.000000000 -0800
+@@ -0,0 +1,40 @@
++#!/bin/sh
++
++echo ONE
++gcc -DNFGVMIN -DSUBSHELL -DUSE_ZIO -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/local/share/locale\" \
++	-I.. -I. -I../src -I../intl -I../lib -g -lnsl -lutil \
++	../lib/long-options.c ../lib/xstrtol.c ../lib/xstrtoul.c ../lib/error.c \
++	lrz.c timing.c zperr.c crctab.c rbsb.c zm.c protname.c \
++	tcp.c lsyslog.c canit.c fifo.c zio.c -o lrz-subs
++
++echo TWO
++gcc -DNFGVMIN -DUSE_ZIO -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/local/share/locale\" \
++	-I.. -I. -I../src -I../intl -I../lib -g -lnsl \
++	../lib/long-options.c ../lib/xstrtol.c ../lib/xstrtoul.c ../lib/error.c \
++	lrz.c timing.c zperr.c crctab.c rbsb.c zm.c protname.c \
++	tcp.c lsyslog.c canit.c fifo.c zio.c -o lrz-zio
++
++echo THREE
++gcc -DNFGVMIN -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/local/share/locale\" \
++	-I.. -I. -I../src -I../intl -I../lib -g -lnsl \
++	../lib/long-options.c ../lib/xstrtol.c ../lib/xstrtoul.c ../lib/error.c \
++	lrz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c \
++	tcp.c lsyslog.c canit.c -o lrz-orig
++
++echo FOUR
++gcc -DNFGVMIN -DUSE_ZIO -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/local/share/locale\" \
++	-I.. -I. -I../src -I../intl -I../lib -g -lnsl -lutil \
++	../lib/long-options.c ../lib/xstrtol.c ../lib/xstrtoul.c ../lib/error.c \
++	lsz.c timing.c zperr.c crctab.c rbsb.c zm.c protname.c \
++	tcp.c lsyslog.c canit.c fifo.c zio.c -o lsz-zio
++
++echo FIVE
++gcc -DNFGVMIN -DHAVE_CONFIG_H -DLOCALEDIR=\"/usr/local/share/locale\" \
++	-I.. -I. -I../src -I../intl -I../lib -g -lnsl -lutil \
++	../lib/long-options.c ../lib/xstrtol.c ../lib/xstrtoul.c ../lib/error.c \
++	lsz.c timing.c zperr.c zreadline.c crctab.c rbsb.c zm.c protname.c \
++	tcp.c lsyslog.c canit.c -o lsz-orig
++
++# add later:
++# -O2
++
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/tcp.c lrzsz-0.12.21/src/tcp.c
+--- lrzsz-0.12.21.orig/src/tcp.c	2004-01-13 23:50:57.000000000 -0800
++++ lrzsz-0.12.21/src/tcp.c	2004-01-21 03:25:48.000000000 -0800
+@@ -38,6 +38,9 @@
+ #include <stdlib.h>
+ #include "error.h"
+ 
++int tcp_server_port=0;
++
++
+ static RETSIGTYPE
+ tcp_alarm_handler(int dummy)
+ {
+@@ -66,7 +69,7 @@
+ 	}
+ 	memset (&s, 0, sizeof (s));
+ 	s.sin_family = AF_INET;
+-	s.sin_port=0; /* let system fill it in */
++	s.sin_port=htons(tcp_server_port);
+ 	s.sin_addr.s_addr=htonl(INADDR_ANY);
+ 	if (bind(sock, (struct sockaddr *)&s, sizeof (s)) < 0) {
+ 		error(1,errno,"bind");
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/zglobal.h lrzsz-0.12.21/src/zglobal.h
+--- lrzsz-0.12.21.orig/src/zglobal.h	2004-01-13 23:50:57.000000000 -0800
++++ lrzsz-0.12.21/src/zglobal.h	2004-01-21 03:26:30.000000000 -0800
+@@ -362,20 +362,18 @@
+ 
+ RETSIGTYPE bibi __P ((int n));
+ 
+-#define sendline(c) putchar((c) & 0377)
+-#define xsendline(c) putchar(c)
+-
+-/* zreadline.c */
++#ifdef USE_ZIO
++#define sendline(c) put_outma((c) & 0377)
++#define xsendline(c) put_outma(c)
++#define READLINE_PF(timeout) read_master_pf()
++#else
++#define xsendline(c) do { char ch=(c); write(1, &ch, 1); } while(0)
++#define sendline(c) xsendline((c) & 0377)
+ extern char *readline_ptr; /* pointer for removing chars from linbuf */
+ extern int readline_left; /* number of buffered chars left to read */
+ #define READLINE_PF(timeout) \
+     (--readline_left >= 0? (*readline_ptr++ & 0377) : readline_internal(timeout))
+-
+-int readline_internal __P ((unsigned int timeout));
+-void readline_purge __P ((void));
+-void readline_setup __P ((int fd, size_t readnum, 
+-	size_t buffer_size)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+-
++#endif
+ 
+ /* rbsb.c */
+ extern int Fromcu;
+@@ -408,7 +406,11 @@
+ int rdchk __P ((int fd));
+ int io_mode __P ((int fd, int n)) LRZSZ_ATTRIB_SECTION(lrzsz_rare);
+ void sendbrk __P ((int fd));
++#ifdef USE_ZIO
++#define flushmo() flush_outma()
++#else
+ #define flushmo() fflush(stdout)
++#endif
+ void purgeline __P ((int fd));
+ void canit __P ((int fd));
+ 
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/zio.c lrzsz-0.12.21/src/zio.c
+--- lrzsz-0.12.21.orig/src/zio.c	1969-12-31 16:00:00.000000000 -0800
++++ lrzsz-0.12.21/src/zio.c	2004-01-21 03:46:30.000000000 -0800
+@@ -0,0 +1,457 @@
++/* zio.c
++ * Scott Bronson
++ * 14 Jan 2004
++ */
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <sys/time.h>
++#include <sys/types.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <errno.h>
++#include <setjmp.h>
++#include <time.h>
++
++#include "fifo.h"
++#include "zio.h"
++
++/* public globals */
++fifo inma;	/* master -> demux -> outso */
++fifo insi;
++fifo outso;		
++fifo outma;
++
++
++#define TIMEOUT (-2)
++
++
++/* private globals */
++static jmp_buf *exit_jmp;
++static struct timeval current_timeout;
++static bcfn backchannel_fn;
++
++
++void zio_bail(fifo *f, char *msg)
++{
++	if(f) {
++		errno = f->error; 
++		fprintf(stderr, "%s ", f->name);
++	}
++
++	perror(msg);
++
++	if(exit_jmp) {
++		longjmp(*exit_jmp, JMP_ERR);
++	}
++
++	/* only safe thing to do here is quit unexpectedly */
++	for(;;) {}
++	exit(1);
++}
++
++
++void default_backchannel(void)
++{
++	/* no action by default */
++}
++
++
++bcfn set_backchannel_fn(bcfn new)
++{
++	bcfn old = backchannel_fn;
++	fifo_clear(&insi);
++	backchannel_fn = new;
++	return old;
++}
++
++
++void zio_setup(int ima, int oso, int ini, int oma, jmp_buf *exit)
++{
++	int stdsize = BUFSIZ;
++
++	exit_jmp = exit;
++	backchannel_fn = &default_backchannel;
++
++    if(!fifo_init("inma", &inma, stdsize)) {
++        zio_bail(&inma, "fifo init");
++    }
++	inma.fd = ima;
++
++	if(oso >= 0) {
++		if(!fifo_init("outso", &outso, stdsize)) {
++			zio_bail(&outso, "fifo init");
++		}
++		outso.fd = oso;
++		fcntl(outso.fd, F_SETFL, fcntl(outso.fd, F_GETFL) | O_NONBLOCK);
++	} else {
++		outso.buf = NULL;
++	}
++
++	if(ini >= 0) {
++		if(!fifo_init("insi", &insi, stdsize)) {
++			zio_bail(&insi, "fifo init");
++		}
++		insi.fd = ini;
++	} else {
++		insi.buf = NULL;
++	}
++
++    if(!fifo_init("outma", &outma, stdsize)) {
++        zio_bail(&outma, "fifo init");
++    }
++	outma.fd = oma;
++    fcntl(outma.fd, F_SETFL, fcntl(outma.fd, F_GETFL) | O_NONBLOCK);
++}
++
++
++/* pass 0 for both to disable the timeout */
++void set_timeout(int sec, int usec)
++{
++	current_timeout.tv_sec = sec;
++	current_timeout.tv_usec = usec;
++}
++
++
++/* returns true if a timeout happened */
++
++static int doio(int shouldblock, struct timeval *timeout)
++{
++    fd_set rfds, wfds;
++	struct timeval tvs, *tvp;
++	int cnt;
++	int nfds;
++	int maxfd = 0;
++
++#define FD_ADD(fd,set) do { \
++		FD_SET((fd), (set)); \
++		if((fd) > maxfd) \
++			maxfd = (fd); \
++	} while(0)
++
++	FD_ZERO(&rfds);
++	FD_ADD(inma.fd, &rfds);
++	if(insi.buf) FD_ADD(insi.fd, &rfds);
++
++	FD_ZERO(&wfds);
++	if(outso.buf && fifo_count(&outso)) FD_ADD(outso.fd, &wfds);
++	if(fifo_count(&outma)) FD_ADD(outma.fd, &wfds);
++
++	if(shouldblock == 0) {
++		/* don't block, so set timeout to 0 */
++		tvs.tv_sec = 0;
++		tvs.tv_usec = 0;
++		tvp = &tvs;
++	} else if(timeout->tv_sec || timeout->tv_usec) {
++		/* going to block so use the timeout */
++		tvs = *timeout;
++		tvp = &tvs;
++	} else {
++		/* no timeout */
++		tvp = NULL;
++	}
++
++	nfds = select(maxfd+1, &rfds, &wfds, NULL, tvp);
++	if(nfds < 0) {
++		zio_bail(NULL, "select error");
++	}
++
++	if(insi.buf && FD_ISSET(insi.fd, &rfds)) {
++		cnt = fifo_read(&insi, insi.fd);
++		if(cnt == 0) {
++			insi.state = FIFO_CLOSED;
++		}
++	}
++	if(FD_ISSET(inma.fd, &rfds)) {
++		cnt = fifo_read(&inma, inma.fd);
++		if(cnt == 0) {
++			inma.state = FIFO_CLOSED;
++		}
++	}
++
++	(*backchannel_fn)();
++
++	/* because we set the output to nonblocking, we just unconditionally
++	 * write without checking the select results first. we still need to
++	 * check the write fds in select, though, so that we'll wake up if
++	 * one of them becomes available */
++	if(outso.buf && (cnt=fifo_count(&outso))) {
++		fifo_write(&outso, outso.fd);
++	}
++	if((cnt=fifo_count(&outma))) {
++		fifo_write(&outma, outma.fd);
++	}
++
++	if(shouldblock) {
++		if(nfds == 0) {
++			return 1;
++		}
++	}
++
++	return 0;	/* no timeout if we didn't block */
++}
++
++
++/* reads/writes all buffers, but won't return until it has some data
++ * for the specified buffer or it hits eof on it */
++/* bufstats is one of DO_ONCE HAS_ROOM HAS_DATA IS_EMPTY
++ * if DO_ONCE is passed then buf can be NULL & we'll never block. */
++/* if error reading the buffer, returns -1, else returns the
++ * number of bytes available in the buffer */
++/* note that if there's an error it only returns if it's THIS stream
++ * that caused the error. otherwise it keeps chugging. eventually
++ * someone will work with the errored stream and THEN it'll bail. */
++/* This call is guaranteed not to block if you pass DO_ONCE.  Otherwise
++ * it will block until the condition is fulfilled.  If the condition is
++ * fulfilled upon entry, it will read/write as much as it can, but it
++ * will not block. */
++
++int tick(int bufstatus, fifo *f, int *toflagp)
++{
++	int ret = 0;
++	time_t starttime, nowtime;
++	struct timeval timeout;
++	int toflag;
++
++	static int seq=0;
++	seq ++;
++
++	starttime = time(NULL);
++
++	if(toflagp) *toflagp = 0;
++
++	if(f) {
++		if(f->error) {
++			ret = -1;
++			goto done;
++		}
++		if(f->state == FIFO_CLOSED) {
++			ret = 0;
++			goto done;
++		}
++	}
++
++	for(;;) {
++		int should_block = 0;
++
++		if(f) {
++			switch(bufstatus) {
++				case DO_ONCE:
++					/* never block */
++					break;
++				case HAS_ROOM:
++					/* block if fifo has no room */
++					if(fifo_avail(f) == 0) should_block = 1;
++					break;
++				case HAS_DATA:
++					/* block if fifo has no data */
++					if(fifo_empty(f)) should_block = 1;
++					break;
++				case IS_EMPTY:
++					if(!fifo_empty(f)) should_block = 1;
++					break;
++				default:
++					ret = -2;
++					goto done;
++			}
++
++			/* if we're going to block, we need to ensure that all
++			 * write buffers are as flushed as possible so data doesn't
++			 * just sit there while we sleep in select. */
++			
++			if(should_block) {
++				if(outso.buf && fifo_count(&outso)) {
++					fifo_write(&outso, outso.fd);
++				}
++				if(fifo_count(&outma)) {
++					fifo_write(&outma, outma.fd);
++				}
++
++				/* now there's a chance that the previous writes
++				 * fulfilled the exit condition.  If so, then exit */
++
++				switch(bufstatus) {
++					case HAS_ROOM:
++						if(fifo_avail(f)) goto done;
++						break;
++					case IS_EMPTY:
++						if(fifo_empty(f)) goto done;
++						break;
++				}
++			}
++		}
++
++		/* need to watch timeout ourselves so that the user banging
++		 * away on the keyboard won't prevent a read timeout from
++		 * triggering */
++		timeout = current_timeout;
++		nowtime = time(NULL);
++		timeout.tv_sec -= difftime(starttime, time(NULL));
++		if(timeout.tv_sec < 0) {
++			toflag = 1;
++			goto done;
++		}
++
++		toflag = doio(should_block, &timeout);
++		if(toflag) {
++			goto done;
++		}
++
++		if(!f) {
++			goto done;
++		}
++
++		if(f->error) {
++			ret = -1;
++			goto done;
++		}
++		if(f->state == FIFO_CLOSED) {
++			ret = 0;
++			goto done;
++		}
++
++		switch(bufstatus) {
++			case DO_ONCE:
++				goto done;
++			case HAS_ROOM:
++				if(fifo_avail(f) > 0) goto done;
++				break;
++			case HAS_DATA:
++				if(!fifo_empty(f)) goto done;
++				break;
++			case IS_EMPTY:
++				if(fifo_empty(f)) goto done;
++				break;
++		}
++	}
++
++done:
++	if(toflagp) *toflagp = toflag;
++	if(!toflag && f && (f->state == FIFO_IN_USE) && ret == 0) {
++		/* fill in count if we performed an error-free transaction */
++		ret = fifo_count(f);
++	}
++
++	return ret;
++}
++
++
++int read_master()
++{
++	int cnt;
++
++	if(fifo_empty(&inma)) {
++		/* there's never a timeout when read_master is called */
++		cnt = tick(HAS_DATA, &inma, NULL);
++		if(cnt < 0) zio_bail(&inma, "could not read from remote");
++		if(cnt == 0) longjmp(*exit_jmp, JMP_EOF);
++	}
++
++	return fifo_unsafe_getchar(&inma);
++}
++
++
++/* return character or TIMEOUT */
++int read_master_pf()
++{
++	int cnt;
++
++	if(fifo_empty(&inma)) {
++		/* there's always a timeout when read_master_pf is called (?) */
++		cnt = tick(HAS_DATA, &inma, NULL);
++		if(cnt < 0) zio_bail(&inma, "could not readpf from remote");
++		 /* original code treats both EOF and timeout as a timeout */
++		if(cnt == 0) return TIMEOUT;
++	}
++
++	return fifo_unsafe_getchar(&inma) & 0377;
++}
++
++
++void write_outso(int c)
++{
++	int cnt;
++
++	/* ensure there's room for this character */
++	cnt = fifo_avail(&outso);
++	if(cnt == 0) {
++		int timeout;
++		cnt = tick(HAS_ROOM, &outso, &timeout);
++		if(cnt < 0) zio_bail(&outso, "could not write to stdout");
++		if(timeout) zio_bail(&outso, "write_outso timed out");
++		if(cnt == 0) zio_bail(&outso, "unknown write_outso error");
++	}
++
++	fifo_unsafe_addchar(&outso, c);
++}
++
++
++void put_outma(int c)
++{
++	int cnt;
++
++	/* ensure there's room for this character */
++	cnt = fifo_avail(&outma);
++	if(cnt == 0) {
++		int timeout;
++		cnt = tick(HAS_ROOM, &outma, &timeout);
++		if(cnt < 0) zio_bail(&outma, "could not write to master");
++		if(timeout) zio_bail(&outso, "put_outma timed out");
++		if(cnt == 0) zio_bail(&outso, "unknown put_outma error");
++	}
++
++	fifo_unsafe_addchar(&outma, c);
++}
++
++
++/* the zmodem code is good about chunking up its requests
++ * so we don't need to be smart about buffering here */
++
++void write_outma(const char *buf, int size)
++{
++	int cnt;
++
++	/* loop until we've transferred the entire buffer */
++	while(size) {
++		cnt = fifo_avail(&outma);
++		if(cnt > size) cnt = size;
++		fifo_unsafe_append(&outma, buf, cnt);
++
++		buf += cnt;
++		size -= cnt;
++
++		if(size) {
++			int timeout;
++			cnt = tick(HAS_ROOM, &outma, &timeout);
++			if(cnt < 0) zio_bail(&outma, "could not write to master");
++			/* the original code didn't support timeouts on the write
++			 * so I don't know what to do in this situation. */
++			if(timeout) zio_bail(&outso, "write_outma timed out");
++		} else {
++			/* for good measure */
++			cnt = tick(DO_ONCE, NULL, NULL);
++			if(cnt < 0) zio_bail(&outma, "could not write to master");
++		}
++	}
++}
++
++
++void readline_purge()
++{
++	fifo_clear(&inma);
++}
++
++
++void flush_outma()
++{
++	if(!fifo_empty(&outma)) {
++		tick(IS_EMPTY, &outma, NULL);
++	}
++
++#ifdef TCFLSH
++    ioctl(outma.fd, TCFLSH, 0);
++#else       
++    lseek(outma.fd, 0L, 2);
++#endif      
++}
++
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/zio.h lrzsz-0.12.21/src/zio.h
+--- lrzsz-0.12.21.orig/src/zio.h	1969-12-31 16:00:00.000000000 -0800
++++ lrzsz-0.12.21/src/zio.h	2004-01-16 11:18:08.000000000 -0800
+@@ -0,0 +1,44 @@
++/* zio.h
++ * Scott Bronson
++ * 14 Jan 2004
++ */
++
++
++extern fifo inma;		/* master -> demux -> */
++extern fifo outso;		/* stdout */
++extern fifo insi;
++extern fifo outma;		/* master backchannel */
++
++
++/* statuses to pass to tick */
++#define HAS_ROOM 3
++#define HAS_DATA 2
++#define IS_EMPTY 1
++#define DO_ONCE  0
++
++
++#define JMP_EOF 1
++#define JMP_ERR 2
++
++
++void zio_bail(fifo *f, char *msg);
++
++typedef void (*bcfn)();
++bcfn set_backchannel_fn(bcfn);
++void default_backchannel(void);
++
++
++extern void zio_setup(int ima, int oso, int ini, int oma, jmp_buf *exit);
++extern void set_timeout(int sec, int usec);
++
++extern int tick(int code, fifo* buf, int *timeoutp);
++
++extern int read_master(void);	/* longjmps on error */
++extern int read_master_pf(void);	/* returns error code */
++/* reading insi happens automatically inside tick */
++extern void write_outso(int c);
++extern void write_outma(const char *buf, int size);
++
++/* in case the master is a modem */
++extern void flush_outma();
++
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/zm.c lrzsz-0.12.21/src/zm.c
+--- lrzsz-0.12.21.orig/src/zm.c	2004-01-13 23:50:57.000000000 -0800
++++ lrzsz-0.12.21/src/zm.c	2004-01-21 03:38:18.000000000 -0800
+@@ -39,6 +39,13 @@
+ #include "zglobal.h"
+ 
+ #include <stdio.h>
++#include <setjmp.h>
++
++#ifdef USE_ZIO
++#include "fifo.h"
++#include "zio.h"
++#endif
++
+ 
+ unsigned int Rxtimeout = 100;		/* Tenths of seconds to wait for something */
+ 
+@@ -106,9 +113,6 @@
+ 
+ extern int zmodem_requested;
+ 
+-#define sendline(c) putchar((c) & 0377)
+-#define xsendline(c) putchar(c)
+-
+ /*
+  * Read a character from the modem line with timeout.
+  *  Eat parity, XON and XOFF characters.
+@@ -292,7 +296,7 @@
+ 			t++;
+ 		}
+ 		if (t!=s) {
+-			fwrite(s,(size_t)(t-s),1,stdout);
++			write_outma(s,(size_t)(t-s));
+ 			lastsent=t[-1];
+ 			s=t;
+ 		}
+@@ -417,7 +421,7 @@
+ 		s[len++]=021;
+ 	}
+ 	flushmo();
+-	write(1,s,len);
++	write_outma(s,len);
+ }
+ 
+ /*
+diff -urN -x Makefile -x tags -x config.status -x lrzsz.pot -x cat-id-tbl.c -x '*.[ao]' -x '*.P' -x 'l[rs]z' lrzsz-0.12.21.orig/src/zreadline.c lrzsz-0.12.21/src/zreadline.c
+--- lrzsz-0.12.21.orig/src/zreadline.c	2004-01-13 23:50:57.000000000 -0800
++++ lrzsz-0.12.21/src/zreadline.c	2004-01-21 03:02:18.000000000 -0800
+@@ -134,3 +134,11 @@
+ 	return;
+ }
+ 
++
++/* outputs data to the master */
++
++void write_outma(const char *buf, int size)
++{       
++	    write(STDOUT_FILENO, buf, size);
++}       
++

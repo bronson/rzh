@@ -1,0 +1,318 @@
+=head1 NAME
+
+tmtest - run a battery of compliance tests
+
+=head1 SYNOPSIS
+
+B<tmtest> [B<-d>|B<-o>|B<-c>] I<DIR>|I<TESTFILE>...
+
+=head1 DESCRIPTION
+
+tmtest executes each test in a set of test files and reports their
+results.  It also runs tests individually to see exactly
+why they are failing.  See L<testfile(5)> for the format of a
+test file and the L<TUTORIAL> section below for a quick introduction
+to tmtest.
+
+=head1 OPTIONS
+
+You can pass the files or directories you'd like tmtest to execute
+on the command line.  When passed a directory, tmtest executes all the
+tests that it can find in that directory, then recurses through all
+of its subdirectories as well.  Running without arguments is equivalent
+to running "tmtest ." -- it executes all tests in the current directory
+and then recurses through all subdirectories.
+
+tmtest only executes files whose names end in ".test".  This means that
+you can use shell globbing ("tmtest 1*") without worrying about colliding
+with other, non-test files.
+
+tmtest first interprets all command-line switches, then runs the tests.
+For example, to dump the output of running test 01, you can say
+"tmtest 01-Test.test -o".  This helps when editing previous command
+lines using the up-arrow.
+
+By default, tmtest simply outputs the test name and an "ok" or "FAIL"
+indicator.  If you want to see more about why the test succeeded or
+failed, you can change tmtest's output using one of the following 3 flags.
+
+=over 8
+
+=item B<-c> I<NUM>
+
+DEPRECATED: This option is deprecated and slated to be removed.
+
+Extracts the specified command from the test file.  Also see L<-h>.
+
+You can use -c and -h to run a command by hand exactly as if it were
+being run from a test file.  The following example pipes the
+output from -h1 to the command specified by -c1:
+
+    ./tmtest -h1 01-TrivialRun.test | `./tmtest -c1 01-TrivialRun.test`
+
+Or an even easier way of running the test manually is to use the L<-e>
+option.
+
+=item B<-d> B<--diff>
+
+Prints a diff of the expected results against the actual results.
+The expected results are
+prefixed with a '-', and the actual results are prefixed with a '+'
+(in other words, the '+' lines are ones that the test erroneously added,
+and the '-' lines are ones that the test erroneously didn't print).
+
+Note that you can pipe this output straight into the patch
+program to modify the test files.  DANGER!!!  This is the perfect way to let
+subtle bugs slip into your test deck.  You should always change your
+testfiles by hand so that you know exactly what changed, including
+whitespace.  However, when sweeping changes are necessary, this can
+be a real time saver.
+
+=item B<-e> B<--explode>
+
+Explodes the testfile into a directory (by default /tmp/tmtest),
+creating an environment to run that test.  If the output directory
+already contains files, those files are first moved out of the
+way so they won't cause confusion.  You can find them in a uniquely
+named subdir of /tmp/tmtest.
+
+Each command is named "cmd-N" where N is the number of the command
+in the test file.  There is also a file "RUN" which will run each
+command file in turn.  Excecuting the "RUN" file should produce
+exactly the same results as running tmtest.
+
+=item B<-f> B<--configfile> F<file>
+
+Specifies a configuration file that tmtest should use.
+Configurations in this file override automatically-included
+ones.  See L<CONFIGURATION> for more.
+
+=item B<-h> I<NUM>
+
+DEPRECATED: This option is deprecated and slated to be removed.
+
+Extracts the specified here document from the test file.
+C<-h1> says to extract the first here doc in the
+test file, C<-h2> the second, etc.  Also see L<-c>.
+
+This is useful when you want to manually execute the commands in a testfile.
+It's probably easiest just to pipe the heredoc straigt to the command.
+For example, if the following command is found in the file named
+"01-testfile.test":
+
+    command <<TT
+	   blah blah blah
+	TT
+
+You can run this exact test from the command line like this:
+
+    tmtest -h1 01-testfile.test | command
+
+=item B<-o> B<--output>
+
+This outputs the entire test file, but include the new results 
+in the output clause instead of the old. 
+This allows you to inspect the test with
+the input at the top of the file and the output that it produced at the bottom.
+
+Presumably, if you piped the output of 'tmtest -o' to a new file and then
+executed the file as a test, that test would be guaranteed to succeeed.
+The only way it
+could fail is if the output contained information that changes, such as
+a timestamp or run count (see the '$clean_results' setting in the
+L<tmtest-config(5)> file for how to fix this).
+
+If a test is failing, don't fix it by running
+"tmtest -o 01-Test.test > 01-Test.test".
+First, it's a good idea to write your tests mostly by hand.  That way, hidden
+whitespace or other indications of slightly buggy behavior won't trip you up.
+If you just just pipe tmtest's output to a test file,
+there's a very real chance
+that you will create a test that ensures buggy behavior.
+The danger of doing this by hand is very, very slight.
+And second, in one of the few poor Unix design decisions, that command
+line won't do what you hope it will.
+
+=item B<-v> B<--verbose>
+
+This asks tmtest to output copious debug information during its run.
+If you're getting strange parse errors (say, "unexpected end of output"),
+running 'tmtest -v' will hopefully show what's
+going on (you probably didn't end a here document).
+It also shows the files created
+and command lines executed while running the test.
+
+=item B<-h> B<-?> B<--help>
+
+Prints some usage instructions and exits.
+
+=item B<-V> B<--version>
+
+Print the version of the executable and exit.
+
+=back
+
+=head1 CONFIGURATION
+
+tmtest reads configuration out of a file named "tmtest.conf" in the
+directory containing the current testfile, and out of all its parent
+directories.  This way, you can have tests in subdirectories inherit
+settings from parent directories.
+
+In addition to all the tmtest.conf files, you can specify a configuration
+file using the L<-f> command-line switch.  Configurations in this file
+override any automatically-included configurations.
+
+Configuration files are simply L<testfile>s, but without commands or
+exit clauses.  Their headers are added to the currently running testfile.
+
+For example, if a "timeout: 20" header appears in a file named
+F<tmtest.conf> in the current tests's directory, it is exactly as if
+the current test had a "timeout: 20" header itself.
+
+
+=head1 BUZZWORDS
+
+There are many ways to categorize test programs.  Here are some terms
+that describe tmtest:
+
+=over 8
+
+=item functional
+
+tmtest is a functional tester, meaning it tests the application as a whole.
+This is different from unit tests, which verify individual components of
+the application.
+Functional tests and unit tests are complimentary,
+and a development team would be wise to make use of both.
+
+=item black-box
+
+tmtest is normally used black-box.  It is not meant to have any insight
+into the inner-workings of the application.  As long
+as the application produces the correct results, tmtest doesn't
+care exactly how the application worked.  This is very useful when
+refactoring.
+
+=item compliance
+
+tmtest is heavily geared towards compliance testing.  It doesn't
+currently offer any sort of performance testing, though it is hoped
+that some sort of performance testing can be added for version 2.
+
+=item regression
+
+This is somewhat obvious because all compliance testers can be used as
+regression testers, but I think it's worth a note.  When you find a bug,
+you should immediately write a test that demonstrates it and add the
+test to your test suite.
+This way, your test suite will ensure that your application will never
+suffer from the same bug again.
+
+=back
+
+=head1 RETURN VALUE
+
+tmtest returns a nonzero error code only if one or more tests
+could not be run for some reason.  If all tests are successfully run,
+even if they all fail, tmtest returns 0.
+
+=head1 TUTORIAL
+
+We'll run through an example tmtest session.
+
+Create "01-Tutorial.test":
+
+    title: Tutorial
+    echo "May"
+    ------ STDOUT: exit code 0 - no error
+    May
+
+Now run the test.
+
+    % tmtest 01-Tutorial.test
+    ok   01-Tutorial.test
+
+The test should run successfully.
+Now, cause the test to fail by changing expected output:
+
+    title: Tutorial
+    echo "May"
+    ------ STDOUT: exit code 0 - no error
+    June
+
+Now your test should fail reliably:
+
+    % tmtest 01-Tutorial.test
+    FAIL 01-Tutorial.test
+
+The first thing that you should do when a test starts failing
+is run it using -d.   This will show the differences between the expected
+output and the actual output:
+
+    % tmtest -d 01-Tutorial.test  
+    ------ Output:
+    --- /tmp/tmtest-1948-expects    2004-04-02 12:19:27.000000000 -0800
+    +++ /tmp/tmtest-1948-results    2004-04-02 12:19:27.000000000 -0800
+    @@ -1 +1 @@
+    -June
+    +May
+
+The test file expected to see "June" ('-'), but the test actually
+produced "May" ('+').  Let's look a the test output to see if we can
+explain this behavior.
+
+    % tmtest -o 01-Tutorial.test
+    title: Tutorial
+    echo "May"
+    ------ STDOUT: exit code 0 - no error
+    May
+
+Well, it's pretty clear that in this particular case, tmtest is producing
+the correct output.  It's the test file that is wrong, not the program.
+So, let's verify this trivial hypothesis by piping tmtest's output to a
+new test file and running that.
+
+    % tmtest -o 01-Tutorial.test > new.test
+    % tmtest new.test
+    ok   new.test
+
+It checks out.  Right now, you're probably thinking that you should
+simply "mv new.test 01-Tutorial.test" and be done with it.  This
+actually is not a good idea.  Make the changes
+by hand.  Otherwise, there is a very real chance that you will be
+tripped up by invisible
+characters or some other small detail that you missed.
+It would be a bad situation to create a stack of 100 tests that all rely on
+on the same tiny bug, especially if you could have prevented it early on.
+
+=head1 HISTORY
+
+tmtest was written in June of 2000 when I got frustrated with TrestleMail's
+continual regressions.  As of version 8, TrestleMail had become somewhat
+large and complex yet, because it was a mail trasfer agent, bugs were
+intolerable.  There were a lot of necessary code cleanups
+to be done, and I was studiously avoiding them for fear of breaking things.
+This situation was stunting TrestleMail's growth.
+
+So, I wrote tmtest as a quick one-off hack.  It allowed me to seriously break
+things, but be confident that I could get everything put back together again.
+tmtest did its job beautifully.
+In fact, it assisted the development of Trestlemail so much that I adapted it
+to a few other projects.   And after gluing on feature after feature over
+the years, tmtest became the beast it is today.
+The need for TrestleMail disappeared a few
+years ago but tmtest lives on.
+
+=head1 FILES
+
+L<tmtest-conf(5)>
+
+=head1 SEE ALSO
+
+L<testfile(1)>, L<tmtest-conf(5)>
+
+=head1 AUTHOR
+
+Scott Bronson <S<bronson@rinspin.com>>
+
