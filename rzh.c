@@ -28,11 +28,16 @@ static ZMCORE zmc;
 static ZMEXT zme;
 
 int verbosity = 0;			// print notification/debug messages
-int do_receive = 0;			// receive a single file -- don't fork subshell
+int do_receive = 0;			// receive files -- don't fork subshell
+int do_send = 0;			// send files -- don't fork a subshell
 int quiet = 0;				// suppress status messages
 double timeout = 10.0;		// timeout in seconds
 const char *dldir = NULL;	// download files to this directory
 
+
+#if !defined(PATH_MAX)
+#define PATH_MAX 4096
+#endif
 
 #define xstringify(x) #x
 #define stringify(x) xstringify(x)
@@ -78,7 +83,7 @@ static void print_error(fifo *f)
 }
 
 
-static void init_receive()
+static void init_zmcore()
 {
 	// reset the file transfer data structures
 	// since we can transfer multiple files per invocation
@@ -109,7 +114,7 @@ void receive_file()
 	struct timespec start;
 	struct timespec end;
 
-	init_receive();
+	init_zmcore();
 	set_timeout((int)timeout, (int)(1E6*(timeout-(int)timeout)));
 
 	clock_gettime(CLOCK_REALTIME, &start);
@@ -132,6 +137,19 @@ void receive_file()
 }
 
 
+static void print_greeting()
+{
+	char buf[PATH_MAX];
+
+	if(getcwd(buf, sizeof(buf))) {
+		if(!quiet) {
+			printf("saving zmodem files to %s\r\n", buf);
+		}
+	} else {
+		printf("rzh is running but couldn't figure out the CWD...\r\n");
+	}
+}
+
 static void do_rzh()
 {
 	int err;
@@ -146,6 +164,7 @@ static void do_rzh()
 			if(insi.buf) print_error(&insi);
 			print_error(&outma);
 		}
+
 		bgio_stop(err ? process_error : 0);
 	}
 
@@ -158,6 +177,7 @@ static void do_rzh()
 		bgio_stop(chdir_error);
 	}
 
+	print_greeting();
 	scan_for_zrqinit(&zmc);
 }
 
@@ -178,6 +198,8 @@ static void usage()
 
 static void process_args(int argc, char **argv)
 {
+	volatile int bk = 0;
+
 	while(1) {
 		int c;
 		int optidx = 0;
@@ -187,21 +209,21 @@ static void process_args(int argc, char **argv)
 			{"help", 0, 0, 'h'},
 			{"quiet", 0, 0, 'q'},
 			{"receive", 0, 0, 'r'},
+			{"send", 0, 0, 's'},
 			{"timeout", 1, 0, 't'},
 			{"verbose", 0, 0, 'v'},
 			{"version", 0, 0, 'V'},
 			{0, 0, 0, 0},
 		};
 
-		c = getopt_long(argc, argv, "Dhqrt:vV", long_options, &optidx);
+		c = getopt_long(argc, argv, "Dhqrst:vV", long_options, &optidx);
 		if(c == -1) break;
 
 		switch(c) {
 			case 'D':
 				fprintf(stderr, "Waiting for debugger to attach to pid %d...\n", (int)getpid());
 				// you must manually step the debugger past this infinite loop.
-				while(1)
-					;
+				while(!bk) { }
 				break;
 
 			case 'h':
@@ -214,6 +236,10 @@ static void process_args(int argc, char **argv)
 
 			case 'r':
 				do_receive++;
+				break;
+
+			case 's':
+				do_send++;
 				break;
 
 			case 't':
@@ -239,19 +265,25 @@ static void process_args(int argc, char **argv)
 	}
 
 	// a single argument specifies the directory we should download to
-	if(optind + 1 == argc) {
+	if(do_send) {
+		if(optind >= argc) {
+			fprintf(stderr, "No files specified!\n");
+			exit(1);
+		}
+	} else {
 		dldir = argv[optind++];
+		
+		// but supplying more than one directory is an error.
+		if(optind < argc) {
+			fprintf(stderr, "Unrecognized argument%s: ", (optind+1==argc ? "" : "s"));
+			while(optind < argc) {
+				fprintf(stderr, "%s ", argv[optind++]);
+			}
+			fprintf(stderr, "\n");
+			exit(argument_error);
+		}
 	}
 
-	// but supplying more than one directory is an error.
-	if(optind < argc) {
-		fprintf(stderr, "Unrecognized arguments: ");
-		while(optind < argc) {
-			fprintf(stderr, "%s ", argv[optind++]);
-		}
-		fprintf(stderr, "\n");
-		exit(argument_error);
-	}
 
 	if(verbosity) {
 		printf("Timeout is %lf seconds\n", timeout);
@@ -261,15 +293,18 @@ static void process_args(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+	// TODO: if argv[0] =~ /sz$/ then do_send = 1
+	// TODO: if argv[0] =~ /rz$/ then do_receive = 1
 	process_args(argc, argv);
 
 	zpd.read = pdcommReadStdin;
 	zpd.write = pdcommWriteStdout;
 
-	// TODO: if argv[0] =~ /sz$/ then do_send = 1
-	// zmcoreSend(&zmc);
-	// TODO: if argv[0] =~ /rz$/ then do_receive = 1
-	if(do_receive) {
+	if(do_send) {
+		init_zmcore();
+		zme.argv = &argv[optind];
+		zmcoreSend(&zmc);
+	} else if(do_receive) {
 		if(chdir_to_dldir() != 0) {
 			exit(chdir_error);
 		}

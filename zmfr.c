@@ -32,10 +32,10 @@
 
 void extModemClearInbound(ZMCORE *zmcore, ZMEXT *zmext)
 {
-    unsigned char buf[200];
+//    unsigned char buf[200];
 
     unused(zmcore);    
-    while (pdcommReadBuf(zmext->pdcomm, buf, sizeof buf) == sizeof buf) ;
+//    while (pdcommReadBuf(zmext->pdcomm, buf, sizeof buf) == sizeof buf) ;
     return;
 }
 
@@ -187,28 +187,44 @@ void extFileFinish(ZMCORE *zmcore, ZMEXT *zmext)
     return;
 }
 
-int extFileGetFile(ZMCORE *zmcore, 
-                   ZMEXT *zmext, 
-                   unsigned char *buf, 
-                   long *filesize)
+static void extFileGetNextFilename(ZMCORE *zmcore, ZMEXT *zmext)
+{
+	strncpy(zmcore->filename, *zmext->argv, sizeof(zmcore->filename));
+	zmcore->filename[sizeof(zmcore->filename)-1] = '\0';
+	if(*zmext->argv) {
+		zmext->argv += 1;
+	}
+}
+
+int extFileGetFile(ZMCORE *zmcore, ZMEXT *zmext)
 {
     int ret = 0;
 
-    unused(zmcore);    
-    strcpy((char *)buf, zmext->fileList[zmext->fileUpto++]);
-    zmcore->filetime = 0;
-    zmext->fd = open((char *)buf, O_RDONLY);
-    if (zmext->fd == -1)
-    {
-        fprintf(stderr, "failed to open file %s: %s\n", buf, strerror(errno));
-    }
-    else
-    {
-        zmcore->actualsize = *filesize = (long)lseek(zmext->fd, 0, SEEK_END);
-        lseek(zmext->fd, 0, SEEK_SET);
-        ret = 1;
-    }
-    return (ret);
+	do {
+		extFileGetNextFilename(zmcore, zmext);
+		if(!zmcore->filename) {
+			// no more files
+			return 0;
+		}
+
+		zmext->fd = open(zmcore->filename, O_RDONLY);
+		if (zmext->fd == -1) {
+			fprintf(stderr, "failed to open file %s: %s\n",
+					zmcore->filename, strerror(errno));
+		} else {
+			struct stat st;
+
+			fprintf(stderr, "opened file %s\n", zmcore->filename);
+			fstat(zmext->fd, &st);
+			zmcore->filetime = st.st_mtime;
+			zmcore->filesize = st.st_size;
+			zmcore->filemode = st.st_mode;
+			zmcore->actualsize = zmcore->filesize;
+			ret = 1;
+		}
+	} while(!ret);
+
+    return ret;
 }
 
 void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset)

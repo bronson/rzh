@@ -15,19 +15,11 @@
 
 #include <pdcomm.h>
 
-#define ZMEXT_MAXFILES 40
-
 typedef struct
 {
     int fd;
     PDCOMM *pdcomm;
-    char fileList[ZMEXT_MAXFILES][FILENAME_MAX];
-    int fileUpto;
+	char **argv;
 } ZMEXT;
-
-void zmextDefaults(ZMEXT *zmext);
-void zmextInit(ZMEXT *zmext, PDCOMM *pdcomm);
-void zmextTerm(ZMEXT *zmext);
-void zmextFileSetSpec(ZMEXT *zmext, char *spec);
 
 #endif

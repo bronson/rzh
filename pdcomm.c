@@ -38,8 +38,8 @@ size_t pdcommWriteStdout(void *buf, size_t num)
 
 	// check for errors...
 	if(cnt != num) {
-		fprintf(stderr, "Didn't write all data, only %d of %d bytes.\n",
-				(int)cnt, (int)num);
+		fprintf(stderr, "Didn't write all data, only %d of %d bytes.  error: %s\n",
+				(int)cnt, (int)num, strerror(errno));
 	}
 	if(errno != 0) {
 		fprintf(stderr, "Error when writing: %s.\n", strerror(errno));

@@ -46,7 +46,7 @@ void bgio_stop(int code)
 {
 	tcsetattr(0, TCSAFLUSH, &stdin_termios);
 	close(bgio_master);
-	fprintf(stderr, "\rrzh exited.\n");
+	fprintf(stderr, "\r\nrzh exited.\r\n");
 	exit(code);
 }
 

@@ -25,33 +25,49 @@ When you're done transferring files, you can use ^D or "exit" to stop rzh.
 
 =head1 OPTIONS
 
+In the absence of B<-r> or B<-s>, rzh will fork itself to the background
+and wait for a zmodem send request.
+
 Specify the directory that you'd like to receive files to on the
 command line.  If no directory is supplied, the current directory
 is used.
 
 =over 8
 
-=item B<-q>
+=item B<-h> B<--help>
+
+Output a quick usage summary.
+
+=item B<-q> B<--quiet>
 
 Suppresses the printing of status messages.
 Error messages are still printed to stderr.
 
-=item B<-r>
+=item B<-r> B<--receive>
 
-Receives a file immediately into the current directory.
-Effectively the same as the L<rz(1)> command.
+Tells rzh to wait for a zmodem transfer to be initiated, handle
+the transfer, and
+exit when it has finished.  If a single argument is passed on
+the command line, it is interpreted as the directory to contain
+the transferred files.  If no argument is supplied, files are
+saved to the current directory.
 
-=item B<-t>
+=item B<-s> B<--send>
+
+Immediately sends the files named on the command line and exits.
+NOTE: this appears somewhat buggy.  Use sz instead.
+
+=item B<-t> B<--timeout>
 
 Specifies the timeout for zmodem transfers in seconds.
 Accepts fractions (i.e. a timeout of 1/2 second would be
 "-t 0.5").
 
-=item B<-v>
+=item B<-v> B<--verbose>
 
 Increases verbosity.
 
-=item B<-V>
+=item B<-V> B<--version>
 
 Prints the version and exits.
 

@@ -30,6 +30,7 @@ void extModemGetBlockImm(ZMCORE *zmcore,
                          size_t max, 
                          size_t *actual);
 void extModemWriteBlock(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t max);
+
 void extFileSetInfo(ZMCORE *zmcore,
                     ZMEXT *zmext,
                     unsigned char *filename, 
@@ -38,10 +39,7 @@ void extFileSetInfo(ZMCORE *zmcore,
                     int *skip);
 void extFileWriteData(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t bytes);
 void extFileFinish(ZMCORE *zmcore, ZMEXT *zmext);
-int extFileGetFile(ZMCORE *zmcore, 
-                   ZMEXT *zmext,
-                   unsigned char *buf, 
-                   long *filesize);
+int extFileGetFile(ZMCORE *zmcore, ZMEXT *zmext);
 void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset);
 int extFileGetData(ZMCORE *zmcore, 
                    ZMEXT *zmext,

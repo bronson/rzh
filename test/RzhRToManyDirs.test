@@ -1,0 +1,22 @@
+# Test Rz/Sz
+# Scott Bronson
+# 4 Nov 2004
+
+# This test is the same as RzhToManyDirs except that it tests 
+# with the -r option.
+
+rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
+
+mkdir /tmp/tmtest-zmodem
+mkfifo /tmp/tmtest-zmodem-pipe
+randfile --seed=1 --size=512 > /tmp/tmtest-zmodem-data
+
+# sz outputs sometimes outputs a ^M on stderr so we need to just discard it.
+sz -q /tmp/tmtest-zmodem-data 2>/dev/null < /tmp/tmtest-zmodem-pipe | \
+	rzh -rq /tmp/tmtest-zmodem /tmp > /tmp/tmtest-zmodem-pipe
+
+randfile --seed=1 --size=512 --check < /tmp/tmtest-zmodem/tmtest-zmodem-data
+
+------ STDERR:
+Unrecognized argument: /tmp 
+------ STDOUT: exit code 1 - abort!

@@ -1430,10 +1430,7 @@ static void sendFiles(ZMCORE *zmcore)
     int sent;
     unsigned long offset;
     
-    gotfile = extFileGetFile(zmcore, 
-                             zmcore->zmext, 
-                             zmcore->filename, 
-                             &zmcore->filesize);
+    gotfile = extFileGetFile(zmcore, zmcore->zmext);
     while (ALLOK && gotfile)
     {
         zmcore->goodOffset = 0;
@@ -1481,10 +1478,7 @@ static void sendFiles(ZMCORE *zmcore)
         }
         if (ALLOK)
         {
-            gotfile = extFileGetFile(zmcore,
-                                     zmcore->zmext,
-                                     zmcore->filename, 
-                                     &zmcore->filesize);
+            gotfile = extFileGetFile(zmcore, zmcore->zmext);
         }
     }
     return;

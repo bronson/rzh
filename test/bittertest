@@ -7,6 +7,8 @@
 # randomly chosen attributes at the zmodem transfer programs.
 # It stops if it finds an error.
 
+# -R  : use lrz instead of rzh -r to receive
+# -S  : use lsz instead of rzh -s to send
 # -e  : just output generated file sizes (to test the random number generator).
 # -l  : tells bittertest to use lrzsz to receive instead of rzh.
 # -n N: the maximum number of tests to perform (default: unlimited)
@@ -39,17 +41,20 @@
 RANDFILE=./randfile
 
 RZ=`pwd`"/../rzh -r"
+# This is disabled until rzh -s can work bug-free.
+# SZ=`pwd`"/../rzh -s"
 SZ=/usr/bin/sz
 TMPDIR="/tmp"
 
 RANDOM=1
 MAXSIZE=64*1048576
 
-while getopts ":eln:r:s:t:" opt
+while getopts ":eRSn:r:s:t:" opt
 do
 	case $opt in
 		e) CHECKSIZE=1;;
-		l) RZ=/usr/bin/rz;;
+		R) RZ=/usr/bin/rz;;
+		S) SZ=/usr/bin/sz;;
 		n) MAXITER=$OPTARG;;
 		r) RANDOM=$OPTARG;;
 		s) MAXSIZE=$OPTARG;;
