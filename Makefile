@@ -5,7 +5,7 @@
 VERSION=0.1
 
 # pdpzm files
-CSRC=zmcore.c zmfr.c error.c pdcomm.c
+CSRC=zmcore.c zmfr.c error.c pdcomm.c fifo.c bgio.c scan.c zio.c rzh.c
 
 
 # ------------------------ #
@@ -19,8 +19,8 @@ COPTS+=-DVERSION=$(VERSION)
 
 all: rzh doc
 
-rzh: $(OBJ) rzh.o
-	$(CC) $(OBJ) rzh.o -o rzh
+rzh: $(OBJ)
+	$(CC) $(OBJ) -lutil -o rzh
 
 %.o: %.c
 	$(CC) $(COPTS) -c $<
@@ -41,8 +41,7 @@ doc: rzh.1
 	pod2man -c "" -r "" -s 1 $< > $@
 
 clean:
-	rm -f rzh rzh.o
-	rm -f rzh.1
+	rm -f rzh rzh.1
 	rm -f $(CSRC:.c=.o)
 	rm -f $(CSRC:.c=.dep)
 	rm -f $(CSRC:.c=.dep.*)

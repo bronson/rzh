@@ -1,11 +1,16 @@
+Do I need to worry about DosSleep?
+
 pdzm doesn't support the ZXSPARS sparse file operation flag.
 	Or the ZTLZW/ZTCRYPT/ZTRLE flags
 	Or ZMCLOB (clobber existing file)
 	Or ZMPROT (protect existing file)
 	Or ZMAPND (append to existing file)
 	Or a bunch of other flags.
+	http://msdn.microsoft.com/library/en-us/randz/protocol/zmodem_zfile_file_attribute_packet.asp?frame=true
 
 In getFileData(), we copy the filename using strncpy.
 	Problem is, we never actually null-terminate the filename itself.
 	Is this OK?  It appears to be...
 
+Another zmodem program:
+	http://mit.edu/afs/athena/astaff/project/telnet/src/zmodem/zmrx.c

@@ -25,7 +25,7 @@
 #endif
 
 
-size_t pdcommWriteBuf(PDCOMM *pdcomm, void *buf, size_t num)
+size_t pdcommWriteStdout(void *buf, size_t num)
 {
 	ssize_t cnt;
 
@@ -44,7 +44,7 @@ size_t pdcommWriteBuf(PDCOMM *pdcomm, void *buf, size_t num)
 }
 
 
-size_t pdcommReadBuf(PDCOMM *pdcomm, void *buf, size_t num)
+size_t pdcommReadStdin(void *buf, size_t num)
 {
 	ssize_t cnt;
 	cnt = read(STDIN_FILENO, buf, num);

@@ -24,8 +24,18 @@ Other than downloading zmodem files, it will never get in your way.
 
 =item B<-q>
 
-Suppresses the printing of status messages.  Error messages are still
-printed though.  Status goes to stdout and errors go to stderr.
+TODO
+Suppresses the printing of status messages.
+Error messages are still printed to stderr.
+
+=item B<-r>
+
+Receives a file immediately into the current directory.
+Effectively the same as the L<rz(1)> command.
+
+=item B<-V>
+
+Prints the version and exits.
 
 =back
 
@@ -33,14 +43,27 @@ printed though.  Status goes to stdout and errors go to stderr.
 
 If rzh is running as root, it will not mark downloaded files as executable.
 
+To ensure that we don't mess up filenames in other character encodings,
+we do not attempt to sanitize the filename.  This is a feature.
+I'll fix this if somebody can show that's it's a security hazard.
+
+We don't support directories in the filename.  If the sending program
+includes directories (i.e. "a/b/file.ext"), we'll fail to create the file.
+
+=head1 BUGS
+
+The code is a lot more complex than it should be.  I first wrote this to
+lrzsz, and when that didn't work, adapted the resulting monstrosity to pdpzm.
+Things would be a lot simpler if I were to rewrite zio with coroutines.
+Unfortunately, this probably won't happen in the near future.
+
 =head1 SEE ALSO
 
 L<rz(1)>, L<sz(1)>
 
 =head1 LICENSE
 
-In in tribute to pdpzm and sqlite, this program is placed in the public
-domain.
+Following pdpzm and sqlite's examples, rzh is placed into the public domain.
 
 =head1 AUTHORS
 

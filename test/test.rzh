@@ -15,7 +15,7 @@ if [ $# = "0" ]; then
 fi
 
 CWD=`pwd`
-RZ="$CWD/../rzh"
+RZ="$CWD/../rzh -r"
 SZ="/usr/bin/sz --disable-timeouts"
 
 DIR="/tmp/rzsz.test.$$"
