@@ -32,7 +32,7 @@ static void cancel_transfer()
 }
 
 
-static void do_transfer(ZMCORE *zmc)
+static void do_transfer()
 {
 	if(fifo_avail(&inma) < strlen(startstr)) {
 		/* this, i think, is effectively impossible */
@@ -43,17 +43,16 @@ static void do_transfer(ZMCORE *zmc)
 
 	// prepend the stock startstr so that the zmodem engine will fire up.
 	fifo_unsafe_prepend(&inma, startstr, strlen(startstr));
-
-	set_timeout(10, 0);
-	fprintf(stderr, "\r\nDoing the RECEIVE!\r\n");
-	zmcoreReceive(zmc);
-	set_timeout(0, 0);
+	receive_file();
 }
 
 
-int scan_for_zrqinit(ZMCORE *zmc)
-{
+// This function is slower than it should be.
+// It can be optimized since most of the characters it'll
+// be looking at won't be 'r' or '*'.
 
+int scan_for_zrqinit()
+{
 	int c;
 	int gotrz;
 	int gotfin;
@@ -117,7 +116,7 @@ toploop:
 						gotfin = 3;
 						c = get_master();
 						if(c == '0') {
-							do_transfer(zmc);
+							do_transfer();
 							goto toploop;
 						}
 					}

@@ -24,7 +24,6 @@ Other than downloading zmodem files, it will never get in your way.
 
 =item B<-q>
 
-TODO
 Suppresses the printing of status messages.
 Error messages are still printed to stderr.
 
@@ -32,6 +31,16 @@ Error messages are still printed to stderr.
 
 Receives a file immediately into the current directory.
 Effectively the same as the L<rz(1)> command.
+
+=item B<-t>
+
+Specifies the timeout for zmodem transfers in seconds.
+Accepts fractions (i.e. a timeout of 1/2 second would be
+"-t 0.5").
+
+=item B<-v>
+
+Increases verbosity.
 
 =item B<-V>
 

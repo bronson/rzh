@@ -20,7 +20,7 @@ COPTS+=-DVERSION=$(VERSION)
 all: rzh doc
 
 rzh: $(OBJ)
-	$(CC) $(OBJ) -lutil -o rzh
+	$(CC) $(OBJ) -lrt -lutil -o rzh
 
 %.o: %.c
 	$(CC) $(COPTS) -c $<

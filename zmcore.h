@@ -39,7 +39,10 @@ typedef struct {
     size_t bufsize;
     size_t maxTx;
     long goodOffset;
-    long filesize;
+    long filesize;		// rx: file size reported by sender		tx: size of file
+	long actualsize;	// rx: actual # of bytes in file		tx: size of file
+	long total_bytes_transferred;
+	long total_files_transferred;
     time_t filetime;
     int gotSpecial;
     int gotHeader;

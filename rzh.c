@@ -9,8 +9,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 #include <setjmp.h>
+#include <getopt.h>
 
 #include "bgio.h"
 #include "zmcore.h"
@@ -21,7 +23,10 @@ static PDCOMM zpd;
 static ZMCORE zmc;
 static ZMEXT zme;
 
+int verbosity = 0;
 int do_receive = 0;
+int quiet = 0;
+double timeout = 10.0;
 
 
 #define xstringify(x) #x
@@ -68,6 +73,44 @@ static void print_error(fifo *f)
 }
 
 
+static void init_receive()
+{
+	// reset the file transfer data structures
+	// since we can transfer multiple files per invocation
+	bzero(&zme, sizeof(ZMEXT));
+	bzero(&zmc, sizeof(ZMCORE));
+	zme.pdcomm = &zpd;
+	zmcoreDefaults(&zmc);
+	zmcoreInit(&zmc, &zme);
+}
+
+void receive_file()
+{
+	struct timespec start;
+	struct timespec end;
+
+	init_receive();
+	set_timeout((int)timeout, (int)(1E6*(timeout-(int)timeout)));
+
+	clock_gettime(CLOCK_REALTIME, &start);
+	zmcoreReceive(&zmc);
+	clock_gettime(CLOCK_REALTIME, &end);
+
+	if(!quiet) {
+		double ds, de, total;
+		ds = start.tv_sec + ((double)start.tv_nsec)/1000000000;
+		de = end.tv_sec + ((double)end.tv_nsec)/1000000000;
+		total = de - ds;
+		long tbt = zmc.total_bytes_transferred;
+
+		fprintf(stderr, "%ld files and %ld bytes transferred in %.5f secs: %.3f kbyte/sec\r\n",
+				zmc.total_files_transferred, tbt, total, (tbt/total/1024.0));
+	}
+
+	set_timeout(0, 0);
+}
+
+
 static void do_rzh()
 {
 	int err;
@@ -85,7 +128,6 @@ static void do_rzh()
 		bgio_stop();
 	}
 
-
 	bgio_start();
 	zio_setup(bgio_master, STDOUT_FILENO, STDIN_FILENO, bgio_master, &bail);
 	set_backchannel_fn(&insi_to_outma_backchannel);
@@ -95,37 +137,93 @@ static void do_rzh()
 }
 
 
+static void usage()
+{
+	printf(
+			"Usage: rzh [OPTION]...\n"
+			"  -r --receive : receives a file immediately without forking a subshell.\n"
+			"  -t --timeout : timeout for zmodem transfers in seconds (fractions are OK).\n"
+			"  -v --verbose : increase verbosity.\n"
+			"  -V --version : print the version of rzh.\n"
+			"  -h --help    : prints this help text\n"
+			"Run rzh with no arguments to receive files into the current directory.\n"
+		  );
+}
+
+
 static void process_args(int argc, char **argv)
 {
-	// Don't want to use getopt because it might cause licensing issues
-	// and we don't really need it anyway.
+	while(1) {
+		int c;
+		int optidx = 0;
+		static struct option long_options[] = {
+			// name, has_arg (1=reqd,2=opt), flag, val
+			{"debug-attach", 0, 0, 'D'},
+			{"help", 0, 0, 'h'},
+			{"quiet", 0, 0, 'q'},
+			{"receive", 0, 0, 'r'},
+			{"timeout", 1, 0, 't'},
+			{"verbose", 0, 0, 'v'},
+			{"version", 0, 0, 'V'},
+			{0, 0, 0, 0},
+		};
 
-	while(*++argv) {
-		char *cp = *argv;
-		if(cp[0] == '-') {
-			switch(cp[1]) {
+		c = getopt_long(argc, argv, "Dhqrt:vV", long_options, &optidx);
+		if(c == -1) break;
+
+		switch(c) {
 			case 'D':
 				fprintf(stderr, "Waiting for debugger to attach to pid %d...\n", (int)getpid());
+				// you must manually step the debugger past this infinite loop.
 				while(1)
 					;
+				break;
+
+			case 'h':
+				usage();
+				exit(0);
+
+			case 'q':
+				quiet++;
+				break;
+
+			case 'r':
+				do_receive++;
+				break;
+
+			case 't':
+				sscanf(optarg, "%lf", &timeout);
+				break;
+
+			case 'v':
+				verbosity++;
 				break;
 
 			case 'V':
 				printf("rzh version %s\n", stringify(VERSION));
 				exit(0);
 
-			case 'r':
-				do_receive = 1;
+			case 0:
+			case '?':
 				break;
 
 			default:
-				fprintf(stderr, "Unknown option passed to rzh: %c\n", cp[1]);
 				exit(1);
-			}
-		} else {
-			fprintf(stderr, "Unknown argument passed to rzh: %s\n", cp);
-			exit(1);
+
 		}
+	}
+
+	if(optind < argc) {
+		fprintf(stderr, "Unrecognized arguments: ");
+		while(optind < argc) {
+			fprintf(stderr, "%s ", argv[optind++]);
+		}
+		fprintf(stderr, "\n");
+		exit(1);
+	}
+
+	if(verbosity) {
+		printf("Timeout is %lf seconds\n", timeout);
 	}
 }
 
@@ -136,15 +234,12 @@ int main(int argc, char **argv)
 
 	zpd.read = pdcommReadStdin;
 	zpd.write = pdcommWriteStdout;
-	zme.pdcomm = &zpd;
-	zmcoreDefaults(&zmc);
-	zmcoreInit(&zmc, &zme);
 
 	// TODO: if argv[0] =~ /sz$/ then do_send = 1
 	// zmcoreSend(&zmc);
 	// TODO: if argv[0] =~ /rz$/ then do_receive = 1
 	if(do_receive) {
-		zmcoreReceive(&zmc);
+		receive_file();
 	} else {
 		do_rzh();
 	}

@@ -134,6 +134,7 @@ void extFileSetInfo(ZMCORE *zmcore,
     // Won't mark anything executable if we're running with root privs.
     int mask = geteuid() ? 07777 : 06666;
     zmcore->filesize = 0;
+	zmcore->actualsize = 0;
     zmcore->filetime = time(NULL);
     long mode = 0644;
 
@@ -155,6 +156,7 @@ void extFileWriteData(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t bytes)
 {
     ssize_t cnt;
     unused(zmcore);
+	zmcore->actualsize += bytes;
     cnt = write(zmext->fd, buf, bytes);
     if(cnt != bytes) {
         fprintf(stderr, "write failed: didn't write all data!\n");
@@ -176,6 +178,9 @@ void extFileFinish(ZMCORE *zmcore, ZMEXT *zmext)
         utime(zmcore->filename, &tv);
     }
 
+	zmcore->total_bytes_transferred += zmcore->actualsize;
+	zmcore->total_files_transferred += 1;
+
     return;
 }
 
@@ -196,7 +201,7 @@ int extFileGetFile(ZMCORE *zmcore,
     }
     else
     {
-        *filesize = (long)lseek(zmext->fd, 0, SEEK_END);
+        zmcore->actualsize = *filesize = (long)lseek(zmext->fd, 0, SEEK_END);
         lseek(zmext->fd, 0, SEEK_SET);
         ret = 1;
     }

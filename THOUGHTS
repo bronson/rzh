@@ -11,6 +11,3 @@ pdzm doesn't support the ZXSPARS sparse file operation flag.
 In getFileData(), we copy the filename using strncpy.
 	Problem is, we never actually null-terminate the filename itself.
 	Is this OK?  It appears to be...
-
-Another zmodem program:
-	http://mit.edu/afs/athena/astaff/project/telnet/src/zmodem/zmrx.c
