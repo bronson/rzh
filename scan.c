@@ -122,9 +122,6 @@ toploop:
 					}
 				}
 			}
-		} else {
-			/* didn't recognize character */
-			continue;
 		}
 
 		/* no session could be started so write data back out */
@@ -132,7 +129,7 @@ toploop:
 			put_stdout('r');
 			put_stdout('z');
 			put_stdout('\r');
-			if(gotrz == 2) {
+			if(gotrz >= 2) {
 				put_stdout('\n');
 			}
 		}
