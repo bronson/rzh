@@ -14,8 +14,7 @@ if [ $# = "0" ]; then
 	exit 0
 fi
 
-CWD=`pwd`
-RZ="$CWD/../rzh -r"
+RZ=`pwd`"/../rzh -r"
 SZ="/usr/bin/sz --disable-timeouts"
 
 DIR="/tmp/rzsz.test.$$"

@@ -8,39 +8,53 @@
 # It stops if it finds an error.
 
 # -e: examine generated file sizes.
+# -l: tells bittertest to use lrzsz to receive instead of rzh.
+# -n: the maximum number of tests to perform (default: unlimited)
 # -r: random seed (by default 1)
 # -s: maximum file size (by default 64 megabytes).
-#     note that we use rand^4, so the avg file size is smaller
+#     note that we use rand^4, so the avg file size is smaller than 32 MB
+# -t: specifies the temporary directory to use (default: /tmp)
+
+# The output:
+# seq:   sequence number -- starts at 1 and counts upward.
+# size:  the size of the file being transferred in bytes
+# seed:  the randseed used to create the file
+# name:  the name of the created file
+# mode:  the permissions on the created file
+# cr:    the wallclock time needed to create the file
+# tx:    the wallclock time needed to transfer the file
+# ck:    the wallclock time needed to check the file
+# total: the wallclock time needed to do all 3.
+
 
 # I just don't trust errexit or pipefail so I check the result of each
 # command manually.  Amazingly, they both appear to have bugs on some
 # platforms!
 
 # todo: should randomize the filename too.
+# todo: what about batching?
 
 
 # full path to randfile program
-RANDFILE=./randfile.pl
-RZ=/usr/bin/rz
+#RANDFILE=./randfile.pl
+RANDFILE=./randfile
+
+RZ=`pwd`"/../rzh -r"
 SZ=/usr/bin/sz
-
-
-srcfile="/tmp/bittertest.data"
-dstdir="/tmp/bittertest"
-dstfile="$dstdir/bittertest.data"
-pipe="/tmp/bittertest.pipe"
-
+TMPDIR="/tmp"
 
 RANDOM=1
 MAXSIZE=64*1048576
 
-while getopts ":en:r:s:" opt
+while getopts ":eln:r:s:t:" opt
 do
 	case $opt in
 		e) CHECKSIZE=1;;
+		l) RZ=/usr/bin/rz;;
 		n) MAXITER=$OPTARG;;
 		r) RANDOM=$OPTARG;;
 		s) MAXSIZE=$OPTARG;;
+		t) TMPDIR=$OPTARG;;
 		*) echo "invalid option: ${OPTARG}"; exit 1;;
 	esac
 done
@@ -51,11 +65,24 @@ if (($#)); then
 fi
 # for arg do echo '--> '"\`$arg'" ; done
 
+if [ ! -d "$TMPDIR" ]; then echo "Directory \"$TMPDIR\" doesn't exist."; exit 1; fi
+if [ ! -w "$TMPDIR" ]; then echo "Directory \"$TMPDIR\" isn't writable."; exit 1; fi
+
+srcfile="$TMPDIR/bittertest.data"
+dstdir="$TMPDIR/bittertest"
+dstfile="$dstdir/bittertest.data"
+pipe="$TMPDIR/bittertest.pipe"
 
 rm -rf "$dstdir" "$pipe"
 mkdir "$dstdir"
+if (($?)) ; then echo "Could not mkdir \"$dstdir\"."; exit 1; fi
 mkfifo "$pipe"
+if (($?)) ; then echo "Could not mkfifo \"$pipe\"."; exit 1; fi
 
+
+forma="%6d %10d %8d %10s %6s "
+formb="%7.3f %7.3f %7.3f %8.4f"
+forms="%6s %10s %8s %10s %6s %7s %7s %7s %8s"
 
 count=0
 while :
@@ -81,15 +108,23 @@ do
 	else
 		rm -f "$srcfile" "$dstfile"
 
+		if (($count % 64 == 0)) ; then
+			printf "\n$forms\n" "seq" "size B" seed name mode "cr s" "tx s" "ck s" "total s"
+			printf "%s\n" -----------------------------------------------------------------------------
+		fi
+
 		# create file contents
-		echo "size=${size} seed=${seed} name=${name} mode=${mode}"
+		printf "$forma" $count $size $seed "$name" $mode
+		nows=`date +%s.%N`
 		$RANDFILE --size=$size --seed=$seed > "$srcfile"
 		if (($?)) ; then echo "Error in randfile."; exit 1; fi
 		chmod $mode "$srcfile"
 		if (($?)) ; then echo "Error in chmod."; exit 1; fi
 
 		# transmit the file
+		nowx=`date +%s.%N`
 		$SZ -q "$srcfile" < "$pipe" | (cd "$dstdir" && exec $RZ -q > "$pipe")
+		printf "$forma" $count $size $seed "$name" $mode
 		if (($?)) ; then echo "Error in transmission."; exit 1; fi
 
 		# unfortunately, stat appears to return a 0 exit code no matter what.
@@ -99,12 +134,21 @@ do
 		if (($?)) ; then echo "Error calling stat on output file."; exit 1; fi
 		if [ "$sti" != "$sto" ]; then echo "Stats don't match.  src='$sti' dst='$sto'"; exit 1; fi
 
+		nowc=`date +%s.%N`
 		cmp "$srcfile" "$dstfile"
 		if (($?)) ; then echo "Error in comparison.  Files don't match?"; exit 1; fi
+
+		nowe=`date +%s.%N`
 	fi
 
+	tms=$(echo $nowx-$nows | bc -l)
+	tmx=$(echo $nowc-$nowx | bc -l)
+	tmc=$(echo $nowe-$nowc | bc -l)
+	tmt=$(echo $nowe-$nows | bc -l)
+	printf "$formb\n" $tms $tmx $tmc $tmt
+
 	count=$((count+1))
-	if [ "$count" -ge "$MAXITER" ] ; then
+	if [ -n "$MAXITER" ] && [ "$count" -ge "$MAXITER" ] ; then
 		exit 0;
 	fi
 done

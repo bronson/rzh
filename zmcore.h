@@ -44,6 +44,7 @@ typedef struct {
 	long total_bytes_transferred;
 	long total_files_transferred;
     time_t filetime;
+	int filemode;
     int gotSpecial;
     int gotHeader;
     int moreData;

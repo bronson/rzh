@@ -123,6 +123,8 @@ void extModemWriteBlock(ZMCORE *zmcore, ZMEXT *zmext, void *buf, size_t max)
     fclose(fq); */
     return;
 }
+
+long g_mode;
    
 void extFileSetInfo(ZMCORE *zmcore,
                     ZMEXT *zmext,
@@ -131,20 +133,21 @@ void extFileSetInfo(ZMCORE *zmcore,
                     long *offset,
                     int *skip)
 {
-    // Won't mark anything executable if we're running with root privs.
-    int mask = geteuid() ? 07777 : 06666;
+    // Won't mark anything executable or special if we're running with root privs.
+    int mask = geteuid() ? 07777 : 00666;
     zmcore->filesize = 0;
 	zmcore->actualsize = 0;
     zmcore->filetime = time(NULL);
-    long mode = 0644;
+	zmcore->filemode = 0644;
 
     unused(fileinfo);
     unused(zmcore);
 
-    sscanf(fileinfo, "%ld %lo %lo", &zmcore->filesize, &zmcore->filetime, &mode);
-    zmext->fd = creat((char *)filename, mode & mask);
-    if(zmext->fd == -1)
-    {
+    sscanf(fileinfo, "%ld %lo %o", &zmcore->filesize,
+			&zmcore->filetime, &zmcore->filemode);
+	zmcore->filemode &= mask;
+    zmext->fd = open(filename, O_CREAT|O_WRONLY|O_TRUNC);
+    if(zmext->fd == -1) {
         fprintf(stderr, "failed to open file %s: %s\n", filename, strerror(errno));
     }
     *offset = 0;
@@ -177,6 +180,7 @@ void extFileFinish(ZMCORE *zmcore, ZMEXT *zmext)
         tv.actime = tv.modtime = zmcore->filetime;
         utime(zmcore->filename, &tv);
     }
+    chmod(zmcore->filename, zmcore->filemode);
 
 	zmcore->total_bytes_transferred += zmcore->actualsize;
 	zmcore->total_files_transferred += 1;

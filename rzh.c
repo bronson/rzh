@@ -166,7 +166,7 @@ static void usage()
 			"  -r --receive : receives a file immediately without forking a subshell.\n"
 			"  -t --timeout : timeout for zmodem transfers in seconds (fractions are OK).\n"
 			"  -v --verbose : increase verbosity.\n"
-			"  -V --version : print the version of rzh.\n"
+			"  -V --version : print the version of this program.\n"
 			"  -h --help    : prints this help text\n"
 			"Run rzh with no arguments to receive files into the current directory.\n"
 		  );

@@ -1,0 +1,18 @@
+running bittertest on a ramdisk
+-------------------------------
+
+To save wear and tear on your hard drive, it's a good idea to
+run bittertest on a ramdisk.  This assumes you're using kernel 2.6
+and you have enough ram to hold the file being transferred.
+bittertest uses up to 64 MB, plus filesystem overhead.
+Change bittertest's maximum file size by setting the MAXSIZE parameter.
+
+
+# mkdir /tmp/ram
+# chown bronson /tmp/ram    (the user that's going to run bittertest)
+# mount -t ramfs ramfs /tmp/ram
+$ ./bittertest -t /tmp/ram
+
+
+What's /dev/shm?  Could this be used instead of ramfs?
+
