@@ -5,10 +5,10 @@ B<rzh> - Receive ZMODEM Here
 =head1 SYNOPSIS
 
 The following example transfers the /etc/hosts file
-on tt.asplode.com to the download directory on the local host.
+on tt.asplode.com to the download directory in the
+current directory on the local host.
 
-  $ cd downloads
-  $ rzh
+  $ rzh ./downloads
   $ ssh tt.asplode.com
   $ sz /etc/hosts
 
@@ -18,7 +18,15 @@ rzh sits in the background listening for a zmodem transfer request.
 When it sees one, it springs to action and sucks down the file.
 Other than downloading zmodem files, it will never get in your way.
 
+It's also very useful for copying files between directories on the
+local machine.  Simply rzh in the destination directory, then cd
+to the source directory and use sz to copy the files.
+
 =head1 OPTIONS
+
+Specify the directory that you'd like to receive files to on the
+command line.  If no directory is supplied, the current directory
+is used.
 
 =over 8
 

@@ -1,1 +1,33 @@
+todo: add progress disply
+todo: add tmtest regression harness (make tmtest support tmpfiles first)
 todo: fix timeouts
+todo: what happens if the dldir is write-protected?
+todo: what happens if I try to clobber a file?
+todo: add a startup message, something like
+      "Saving to /home/bronson/downloads on lea.rinspin.com\n"?
+todo: make it equivalent to "rzh -r" if argv[0] =~ /rz$/
+todo: make it equivalent to "rzh -s" if argv[0] =~ /sz$/ (and add send function)
+todo: there's no way to preserve symlinks, etc.  Maybe use tar
+	to implement an automatic archival mode?
+
+
+SUMMARY
+a whole bunch of sz compliance tests...  Problems found in most
+of the items below will probably indicate a issue with pdpzm.
+
+todo: do we support sz - (from stdin, no file size sent)
+todo: support sz -y and -Y (open file for writing unconditionally -- clobber)
+todo: support sz -a (convert newlines)
+todo: support sz -+ (append transmitted data to end of file)
+todo: do we work with sz -8 (use 8 kb frames)?
+todo: do we work with sz -c (send a command) or sz -i?
+todo: do we work with sz -E (force sender to rename new file)?
+todo: do we work with sz -n (send file if no dest or src is newer)
+todo: do we work with sz -N (send file if no dest or src is newer or longer)
+todo: do we work with sz -f and sz -d?
+todo: do we work with sz -o (manual selection of crc)?
+todo: do we work with sz -p (protect existing files)?
+todo: do we work with sz -r (resume interrupted file transfer)?
+todo: do we work with sz -w (limit the window size)?
+todo: we need to support -L with various packetsizes.
+todo: do we work with sz -T (testing bad packets mode)?

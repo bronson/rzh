@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -23,10 +24,11 @@ static PDCOMM zpd;
 static ZMCORE zmc;
 static ZMEXT zme;
 
-int verbosity = 0;
-int do_receive = 0;
-int quiet = 0;
-double timeout = 10.0;
+int verbosity = 0;			// print notification/debug messages
+int do_receive = 0;			// receive a single file -- don't fork subshell
+int quiet = 0;				// suppress status messages
+double timeout = 10.0;		// timeout in seconds
+const char *dldir = NULL;	// download files to this directory
 
 
 #define xstringify(x) #x
@@ -84,6 +86,21 @@ static void init_receive()
 	zmcoreInit(&zmc, &zme);
 }
 
+static int chdir_to_dldir()
+{
+	int succ = 0;
+
+	if(dldir) {
+		succ = chdir(dldir);
+		if(succ != 0) {
+			fprintf(stderr, "Could not chdir to \"%s\": %s\n",
+					dldir, strerror(errno));
+		}
+	}
+
+	return succ;
+}
+
 void receive_file()
 {
 	struct timespec start;
@@ -126,7 +143,7 @@ static void do_rzh()
 			if(insi.buf) print_error(&insi);
 			print_error(&outma);
 		}
-		bgio_stop();
+		bgio_stop(err ? process_error : 0);
 	}
 
 	bgio_start();
@@ -134,6 +151,10 @@ static void do_rzh()
 	set_backchannel_fn(&insi_to_outma_backchannel);
 	zpd.read = read_master;
 	zpd.write = write_master;
+	if(chdir_to_dldir() != 0) {
+		bgio_stop(chdir_error);
+	}
+
 	scan_for_zrqinit(&zmc);
 }
 
@@ -141,7 +162,7 @@ static void do_rzh()
 static void usage()
 {
 	printf(
-			"Usage: rzh [OPTION]...\n"
+			"Usage: rzh [OPTION]... [DLDIR]\n"
 			"  -r --receive : receives a file immediately without forking a subshell.\n"
 			"  -t --timeout : timeout for zmodem transfers in seconds (fractions are OK).\n"
 			"  -v --verbose : increase verbosity.\n"
@@ -209,18 +230,24 @@ static void process_args(int argc, char **argv)
 				break;
 
 			default:
-				exit(1);
+				exit(argument_error);
 
 		}
 	}
 
+	// a single argument specifies the directory we should download to
+	if(optind + 1 == argc) {
+		dldir = argv[optind++];
+	}
+
+	// but supplying more than one directory is an error.
 	if(optind < argc) {
 		fprintf(stderr, "Unrecognized arguments: ");
 		while(optind < argc) {
 			fprintf(stderr, "%s ", argv[optind++]);
 		}
 		fprintf(stderr, "\n");
-		exit(1);
+		exit(argument_error);
 	}
 
 	if(verbosity) {
@@ -240,6 +267,9 @@ int main(int argc, char **argv)
 	// zmcoreSend(&zmc);
 	// TODO: if argv[0] =~ /rz$/ then do_receive = 1
 	if(do_receive) {
+		if(chdir_to_dldir() != 0) {
+			exit(chdir_error);
+		}
 		receive_file();
 	} else {
 		do_rzh();

@@ -41,12 +41,12 @@ static void window_resize(int dummy)
 }
 
 
-void bgio_stop(void)
+void bgio_stop(int code)
 {
 	tcsetattr(0, TCSAFLUSH, &stdin_termios);
 	close(bgio_master);
-	fprintf(stderr, "\nrzh exited.\n");
-	exit(0);
+	fprintf(stderr, "\rrzh exited.\n");
+	exit(code);
 }
 
 
@@ -56,7 +56,7 @@ static void sigchild(int dummy)
 
 	while ((pid = wait3(&dummy, 0, 0)) > 0) {
 		if (pid == child_pid) {
-			bgio_stop();
+			bgio_stop(0);
 		}
 	}
 }
@@ -106,7 +106,7 @@ void bgio_start()
 	if (openpty(&bgio_master, &bgio_slave, NULL, &stdin_termios, &win) < 0) {
 		perror("calling openpty");
 		kill(0, SIGTERM);
-		bgio_stop();
+		bgio_stop(fork_error1);
 	}
 
 	tt = stdin_termios;
@@ -120,14 +120,14 @@ void bgio_start()
 	if(child_pid < 0) {
 		perror("forking child");
 		kill(0, SIGTERM);
-		bgio_stop();
+		bgio_stop(fork_error2);
 	}
 
 	if(child_pid == 0) {
 		do_child();
 		perror("executing child");
 		kill(0, SIGTERM);
-		bgio_stop();
+		bgio_stop(fork_error3);
 	}
 
 	signal(SIGWINCH, window_resize);

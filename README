@@ -5,6 +5,7 @@ Scott Bronson
 INSTALLATION
 
 	$ make
+	$ make test       (requires that some form of sz be installed)
 	$ make install
 
 
