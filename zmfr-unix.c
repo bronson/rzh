@@ -50,7 +50,7 @@ void extFileSetPos(ZMCORE *zmcore, ZMEXT *zmext, long offset)
  *  - fileinfo: the zmodem info string for the file
  *  - filemode: the mode as read from fileinfo
  *  - filesize: the supposed file size as read from fileinfo
- *  - filetime: the file modification time as read from fileinfo
+ *  - filetime: the file modification time as read from fileinfo ((time_t)(-1) if unspecified)
  *
  *  and you may set the following zmcore parameters to affect the transfer:
  *  - goodOffset: ?? (defaults to 0)
@@ -95,7 +95,7 @@ void extFileReceiveFinish(ZMCORE *zmcore, ZMEXT *zmext)
     }
 
     // Set file mtime.
-    if(zmcore->filetime) {
+    if(zmcore->filetime != (time_t)(-1)) {
         tv.actime = tv.modtime = zmcore->filetime;
         err = utime(zmcore->filename, &tv);
         if(err) {
@@ -124,7 +124,7 @@ void extFileReceiveFinish(ZMCORE *zmcore, ZMEXT *zmext)
  *
  *  you may set the following parameters:
  *  - filemode: the mode (defaults to 0644).
- *  - filetime: the file modification time (defaults to the current time).
+ *  - filetime: the file modification time (defaults to (time_t)(-1) -- unspecified).
  */
 void extFileSendStart(ZMCORE *zmcore, ZMEXT *zmext)
 {
@@ -149,6 +149,7 @@ void extFileSendStart(ZMCORE *zmcore, ZMEXT *zmext)
         if(err) {
             errorSet("failed to stat file %s: %s\n", zmcore->filename, strerror(errno));
         } else {
+            // both times are expressed in seconds since the epoch.
             zmcore->filetime = st.st_mtime;
             zmcore->filesize = st.st_size;
             zmcore->filemode = st.st_mode;

@@ -565,6 +565,7 @@ static void getFileData(ZMCORE *zmcore)
 {
     unsigned char *pos;
     int problem;
+    long intime;
     
     getData(zmcore);
     if (ALLOK)
@@ -588,10 +589,36 @@ static void getFileData(ZMCORE *zmcore)
             {
                 if ((pos - zmcore->mainBuf) < 1024)
                 {
+
                     problem = 0;
                     sscanf(zmcore->fileinfo, "%ld %lo %o", &zmcore->filesize,
-                        &zmcore->filetime, &zmcore->filemode);
+                        &intime, &zmcore->filemode);
+                    if(intime > 0) {
 
+                        static struct tm tm = { 0, 0, 0, 0, 0, 0, 0, 0, 0};
+                        char *oldtz;
+                        tm.tm_year = 70;
+                        tm.tm_mday = 1;
+                        tm.tm_isdst = -1;
+                        tm.tm_sec = intime;
+                        
+                        // there's no portable "mkgmtime" and I don't
+                        // know of any other way of getting mktime to
+                        // use gmtime.
+                        oldtz = getenv("TZ");
+                        if(oldtz) {
+                            oldtz = strdup(oldtz);
+                        }
+                        setenv("TZ", "UTC", 1);
+                        zmcore->filetime = mktime(&tm);
+                        setenv("TZ", oldtz, 1);
+                        if(oldtz) {
+                            free(oldtz);
+                        }
+
+                    } else {
+                        zmcore->filetime = (time_t)(-1);
+                    }
                 }
             }        
         }
@@ -1434,7 +1461,7 @@ static void sendFiles(ZMCORE *zmcore)
     
     zmcore->filename[0] = '\0';
     zmcore->filesize = 0;
-    zmcore->filetime = 0;
+    zmcore->filetime = (time_t)(-1);
     zmcore->filemode = 0644;
 
     extFileSendStart(zmcore, zmcore->zmext);
@@ -1488,7 +1515,7 @@ static void sendFiles(ZMCORE *zmcore)
         {
             zmcore->filename[0] = '\0';
             zmcore->filesize = 0;
-            zmcore->filetime = 0;
+            zmcore->filetime = (time_t)(-1);
             zmcore->filemode = 0644;
 
             extFileSendStart(zmcore, zmcore->zmext);
@@ -1679,6 +1706,7 @@ static void sendZFILE(ZMCORE *zmcore)
 
 static void sendFILEINFO(ZMCORE *zmcore)
 {
+    char timebuf[36];
     unsigned char *buf;
     int cnt = 0;
     int x;
@@ -1687,8 +1715,18 @@ static void sendFILEINFO(ZMCORE *zmcore)
     buf = zmcore->mainBuf;
     strcpy((char *)buf, (char *)zmcore->filename);
     cnt = strlen((char *)buf) + 1;
-    sprintf((char *)buf + cnt, "%ld %lo %o 0",
-        zmcore->filesize, zmcore->filetime, zmcore->filemode); 
+    
+    if(zmcore->filetime == (time_t)(-1)) {
+        // time wasn't specified so send "0".
+        timebuf[0] = '0';
+        timebuf[1] = '\0';
+    } else {
+        strftime(timebuf, sizeof(timebuf), "%s", localtime(&zmcore->filetime));
+        fprintf(stderr, "strftime: GOT str %s\n", timebuf);
+    }
+
+    sprintf((char *)buf + cnt, "%ld %s %o 0",
+        zmcore->filesize, timebuf, zmcore->filemode); 
     cnt = cnt + strlen((char *)buf + cnt) + 1;
     crcxmInit(&crc);
     for (x = 0; x < cnt; x++)

@@ -1,0 +1,181 @@
+diff -ruN orig-4/zmcore.c new/zmcore.c
+--- orig-4/zmcore.c	2004-11-15 15:45:26.000000000 -0800
++++ new/zmcore.c	2004-11-15 16:38:41.000000000 -0800
+@@ -565,6 +565,7 @@
+ {
+     unsigned char *pos;
+     int problem;
++    long intime;
+     
+     getData(zmcore);
+     if (ALLOK)
+@@ -588,10 +589,36 @@
+             {
+                 if ((pos - zmcore->mainBuf) < 1024)
+                 {
++
+                     problem = 0;
+                     sscanf(zmcore->fileinfo, "%ld %lo %o", &zmcore->filesize,
+-                        &zmcore->filetime, &zmcore->filemode);
++                        &intime, &zmcore->filemode);
++                    if(intime > 0) {
++
++                        static struct tm tm = { 0, 0, 0, 0, 0, 0, 0, 0, 0};
++                        char *oldtz;
++                        tm.tm_year = 70;
++                        tm.tm_mday = 1;
++                        tm.tm_isdst = -1;
++                        tm.tm_sec = intime;
++                        
++                        // there's no portable "mkgmtime" and I don't
++                        // know of any other way of getting mktime to
++                        // use gmtime.
++                        oldtz = getenv("TZ");
++                        if(oldtz) {
++                            oldtz = strdup(oldtz);
++                        }
++                        setenv("TZ", "UTC", 1);
++                        zmcore->filetime = mktime(&tm);
++                        setenv("TZ", oldtz, 1);
++                        if(oldtz) {
++                            free(oldtz);
++                        }
+ 
++                    } else {
++                        zmcore->filetime = (time_t)(-1);
++                    }
+                 }
+             }        
+         }
+@@ -1434,7 +1461,7 @@
+     
+     zmcore->filename[0] = '\0';
+     zmcore->filesize = 0;
+-    zmcore->filetime = 0;
++    zmcore->filetime = (time_t)(-1);
+     zmcore->filemode = 0644;
+ 
+     extFileSendStart(zmcore, zmcore->zmext);
+@@ -1488,7 +1515,7 @@
+         {
+             zmcore->filename[0] = '\0';
+             zmcore->filesize = 0;
+-            zmcore->filetime = 0;
++            zmcore->filetime = (time_t)(-1);
+             zmcore->filemode = 0644;
+ 
+             extFileSendStart(zmcore, zmcore->zmext);
+@@ -1679,6 +1706,7 @@
+ 
+ static void sendFILEINFO(ZMCORE *zmcore)
+ {
++    char timebuf[36];
+     unsigned char *buf;
+     int cnt = 0;
+     int x;
+@@ -1687,8 +1715,18 @@
+     buf = zmcore->mainBuf;
+     strcpy((char *)buf, (char *)zmcore->filename);
+     cnt = strlen((char *)buf) + 1;
+-    sprintf((char *)buf + cnt, "%ld %lo %o 0",
+-        zmcore->filesize, zmcore->filetime, zmcore->filemode); 
++    
++    if(zmcore->filetime == (time_t)(-1)) {
++        // time wasn't specified so send "0".
++        timebuf[0] = '0';
++        timebuf[1] = '\0';
++    } else {
++        strftime(timebuf, sizeof(timebuf), "%s", localtime(&zmcore->filetime));
++        fprintf(stderr, "strftime: GOT str %s\n", timebuf);
++    }
++
++    sprintf((char *)buf + cnt, "%ld %s %o 0",
++        zmcore->filesize, timebuf, zmcore->filemode); 
+     cnt = cnt + strlen((char *)buf + cnt) + 1;
+     crcxmInit(&crc);
+     for (x = 0; x < cnt; x++)
+diff -ruN orig-4/zmcore.dep new/zmcore.dep
+--- orig-4/zmcore.dep	1969-12-31 16:00:00.000000000 -0800
++++ new/zmcore.dep	2004-11-15 16:38:41.000000000 -0800
+@@ -0,0 +1 @@
++zmcore.o zmcore.dep : zmcore.c zmextm.h zmcore.h zmext.h zmfr.h unused.h
+diff -ruN orig-4/zmcore.h new/zmcore.h
+--- orig-4/zmcore.h	2004-11-15 15:45:26.000000000 -0800
++++ new/zmcore.h	2004-11-15 16:38:41.000000000 -0800
+@@ -14,6 +14,7 @@
+ #define ZMCORE_INCLUDED
+ 
+ #include <stdio.h>
++#include <time.h>
+ 
+ #include "zmext.h"
+ 
+@@ -40,7 +41,7 @@
+     size_t maxTx;
+     long goodOffset;
+     long filesize;
+-    long filetime;
++    time_t filetime;
+     int filemode;
+     int gotSpecial;
+     int gotHeader;
+Binary files orig-4/zmcore.o and new/zmcore.o differ
+diff -ruN orig-4/zmfr-unix.c new/zmfr-unix.c
+--- orig-4/zmfr-unix.c	2004-11-15 15:45:26.000000000 -0800
++++ new/zmfr-unix.c	2004-11-15 16:28:41.000000000 -0800
+@@ -55,7 +55,7 @@
+  *  - fileinfo: the zmodem info string for the file
+  *  - filemode: the mode as read from fileinfo
+  *  - filesize: the supposed file size as read from fileinfo
+- *  - filetime: the file modification time as read from fileinfo
++ *  - filetime: the file modification time as read from fileinfo ((time_t)(-1) if unspecified)
+  *
+  *  and you may set the following zmcore parameters to affect the transfer:
+  *  - goodOffset: ?? (defaults to 0)
+@@ -100,7 +100,7 @@
+     }
+ 
+     // Set file mtime.
+-    if(zmcore->filetime) {
++    if(zmcore->filetime != (time_t)(-1)) {
+         tv.actime = tv.modtime = zmcore->filetime;
+         err = utime(zmcore->filename, &tv);
+         if(err) {
+@@ -129,7 +129,7 @@
+  *
+  *  you may set the following parameters:
+  *  - filemode: the mode (defaults to 0644).
+- *  - filetime: the file modification time (defaults to the current time).
++ *  - filetime: the file modification time (defaults to (time_t)(-1) -- unspecified).
+  */
+ void extFileSendStart(ZMCORE *zmcore, ZMEXT *zmext)
+ {
+@@ -152,6 +152,7 @@
+         if(err) {
+             errorSet("failed to stat file %s: %s\n", zmcore->filename, strerror(errno));
+         } else {
++            // both times are expressed in seconds since the epoch.
+             zmcore->filetime = st.st_mtime;
+             zmcore->filesize = st.st_size;
+             zmcore->filemode = st.st_mode;
+diff -ruN orig-4/zmfr.c new/zmfr.c
+--- orig-4/zmfr.c	2004-11-15 15:45:26.000000000 -0800
++++ new/zmfr.c	2004-11-15 16:25:55.000000000 -0800
+@@ -47,7 +47,7 @@
+  *  - fileinfo: the zmodem info string for the file
+  *  - filemode: the mode as read from fileinfo
+  *  - filesize: the supposed file size as read from fileinfo
+- *  - filetime: the file modification time as read from fileinfo
++ *  - filetime: the file modification time as read from fileinfo (it's (time_t)(-1) if unspecified)
+  *
+  *  and you may set the following zmcore parameters to affect the transfer:
+  *  - goodOffset: ?? (defaults to 0)
+@@ -103,7 +103,7 @@
+  *
+  *  you may set the following parameters:
+  *  - filemode: the mode (defaults to 0644).
+- *  - filetime: the file modification time (defaults to the current time).
++ *  - filetime: the file modification time (defaults to (time_t)(-1) -- unspecified).
+  */
+ void extFileSendStart(ZMCORE *zmcore, ZMEXT *zmext)
+ {
