@@ -259,6 +259,11 @@ This is turned on by default.
 
 Enables interpolation on the input passed to each command.
 
+=item stdout
+=item stderr
+
+Enables interpolation on the command's output.
+
 =item I<filename>
 
 This enables interpolation only on the L<create file|/"Create Files">
@@ -360,6 +365,21 @@ Remember that variables are interpolated in headers, so all dollar
 signs C<$> need to be esacped with a backslash C<\$> if you don't
 want them to interpolate a tmtest header.  This also means that all 
 backslashes (C<\>) need to be escaped with a backslash as well (C<\\>).
+
+=item explode-dir
+
+=item explodedir
+
+Tells what directory should contain the exploded test files.  It will be
+created if it doesn't already exist but its parents won't.
+Default value is F</tmp/tmtest>.
+
+=item subtests
+
+=item subtest
+
+Specifies that this test file contains subtests.  See
+L</SUBTESTS>.
 
 =back
 
@@ -542,6 +562,88 @@ to stdout.
 tmtest ensures that the expected output matches the actual output down to
 the last bit.  It will not ignore whitepace.  See L</"eachline"> if you
 need to loosen the test requirements a bit.
+
+=head1 SUBTESTS
+
+Often you will want to run a large number of tests that differ only
+in a very insignificant way.  For instance, if you're testing the
+zmodem protocol, you'll want to ensure that you can send files of
+many different sizes.  You could, of course,
+use brute force and create a large number of
+virtually identical testfiles.  This gets difficult when you
+want to make a small change, however, since you
+must update each test file by hand.
+
+Subtests parameterize the testfile.  You specify the test to run,
+then run it multiple times with different values.  Here is an example:
+
+    subtests: on
+  
+    rzsz.test: file = <<-EOL
+      randfile --seed=1 --size=$(size) > /tmp/tmtest-zmodem-data
+      zmodem-send /tmp/tmtest-zmodem-data -o /tmp/tmtest-zmodem-output
+      randfile --seed=1 --size=$(size) --check < /tmp/tmtest-zmodem-output
+      # (using hardcoded /tmp files like this not generally a good idea...)
+      ------ STDOUT: exit code 0 - no error
+    EOL
+  
+    tmtest -D size=0 $(rzsz.test)
+    tmtest -D size=1 $(rzsz.test)
+    tmtest -D size=257 $(rzsz.test)
+    tmtest -D size=5551212 $(rzsz.test)
+
+The test is specified in the rzsz.test file.  It doesn't matter what
+you name it, as long as it ends with ".test".  We then run tmtest
+with this file 4 different times, each time specifying a different
+value for size.
+
+This test would work perfectly fine even if you didn't supply
+the "subtests: on" header (except that the
+current config file won't be read; you'd need to specify it with L<-f>).
+However, you would not receive feedback until all test finished
+completely, and you would receive only a pass/fail status.
+It's nicer to run subtests with "subtests: on".
+
+Turning the subtests header on changes the way tmtest runs commands.
+When it seems a command beginning with "tmtest", it spawns the subprocess
+in a slightly different way.  All other commands are executed as normal.
+
+=over 2
+
+=item *
+
+The subprocess is told to read the config files from the current
+test directory.
+This means it will run with the exact same headers
+as it would if it were a test in its own file in the current directory.
+
+=item *
+
+tmtest automatically interprets the success/fail of the subprocess
+and prints each result as it arrives.  Without this, you'd need to
+use an eachline to get rid of the changing testname, then verify that
+the output is the correct number of "C<ok   tmtest-PID.ID.test>" lines.
+You would only find out after all tests have been run whenter any of
+them failed.
+
+  eachline: s/tmtest-\d+\.\S+\./tmtest-PID.ID./
+
+=item *
+
+Each subtest's name includes its parameters.  For instance, if the
+main test is named "MainTest", and it runs a subtest using "-D size=4",
+then the subtest is named "MainTest: size=4".  This works for any number
+of values: "-D size=4 -D name=foo" becomes "MainTest: name=foo, size=4".
+The parameters are listed in alphabetical order.
+
+=back
+
+If you don't want the result of each subtest to show up in the main
+test results then, by all means,
+run the subtests without the "subtests" header.
+
+It's easiest to debug subtests by L<exploding/"-e"> the testfile,
+and running the failing tests by hand.
 
 =head1 EXAMPLE
 

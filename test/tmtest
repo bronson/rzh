@@ -13,6 +13,7 @@
 
 use strict; 
 use Config;
+use Cwd ();
 use Getopt::Long ();
 use File::Spec ();
 use File::Basename ();
@@ -42,8 +43,7 @@ $SIG{__DIE__} = sub {
 my $test_runs = 0;
 my $test_successes = 0;
 my $test_failures = 0;
-my $test_dumpstats = 0;
-my $explicit_config = undef;	# the test file if -f is specified
+my @explicit_configs;	    # the parsed test files specified in custom_dir
 
 my %configs;    # keeps track of which config files we've looked at
 my %defines;    # contains all definitions given by -D on the cmdline.
@@ -68,9 +68,16 @@ my $diff_results = 0;
 my $syntax_check = 0;		# deprecated?
 my $extract_here = undef;	# deprecated?
 my $extract_cmd = undef;	# deprecated?
-my $custom_file = undef;
+my @default_files = ("/etc/tmtest.conf",    # config files we should load
+    ($ENV{HOME}||$ENV{LOGDIR}||(getpwuid($>))[7]) . "/.tmtest.conf");
+my @custom_files;    # config files user asked us to load
+my @custom_dirs;     # config dirs we should process
+my @base_configs;    # contains all non-test-specific configs
+my $test_name = '';
 my $debug = 0;
 my $editor = 0;
+my $quiet = 0;
+my $loud = 0;
 my $test_is_from_stdin = 0; # 1 if "-" on cmdline so test is read from stdin.
 
 # Need to know if signal raised on child is sigint.
@@ -87,16 +94,21 @@ exit(1) unless Getopt::Long::GetOptions(
 	"syntax|Z"		=> \$syntax_check,	# deprecated?
 	"heredoc=s"		=> \$extract_here,	# deprecated?
 	"cmd=s"			=> \$extract_cmd,	# deprecated?
-	"configfile|f=s" => \$custom_file,
+    "quiet|q"       => \$quiet,
+    "loud|l"       => \$loud,
+    "config-dir=s"  => \@custom_dirs,
+	"config-file|f=s" => \@custom_files,
 	"verbose+"		=> \$debug,			# needs to change
+    "test-name=s"    => \$test_name,
 	"edit|v"		=> \$editor,
 	"help|h|?"		=> sub { print "$usage\n"; exit(0); },
 	"version|V"		=> sub { print "tmtest version $VERSION\n"; exit(0); },
 	);
 
 
-my $quiet = 0;
-if($diff_results || $explode_file) {
+my $base_dir = File::Spec->rel2abs(File::Spec->curdir());
+
+if($dump_results || $diff_results || $explode_file || $syntax_check) {
 	$quiet = 1;
 }
 
@@ -107,10 +119,18 @@ if(defined($extract_cmd) and $extract_cmd !~ /^\d+$/) {
 	die "-c requires a positive integer, not '$extract_cmd'!\n";
 }
 
-if(defined $custom_file) {
-	# read the explicit configuration file
-	my($file, $dir) = File::Basename::fileparse($custom_file);
-	$explicit_config = read_test_file($custom_file, File::Spec->rel2abs($dir), 0);
+for(@default_files) {
+    next unless -f $_;
+	my($file, $dir) = File::Basename::fileparse($_);
+	push @base_configs, read_test_file($_, File::Spec->rel2abs($dir), 0);
+}
+for(@custom_files) {
+	my($file, $dir) = File::Basename::fileparse($_);
+	push @base_configs, read_test_file($_, File::Spec->rel2abs($dir), 0);
+}
+for(@custom_dirs) {
+    die "$_ is not a directory!\n" unless -d $_;
+	push @base_configs, get_configs(File::Spec->rel2abs($_));
 }
 
 if($editor) {
@@ -150,7 +170,7 @@ if( @ARGV == 1 && $ARGV[0] eq "-" ) {
 	search_test_dirs(".");
 }
 
-if($test_dumpstats && !$quiet) {
+if($loud || !$quiet) {
 	print "\n$test_runs test" .
 		($test_runs != 1 ? "s" : "") . " run, $test_successes success" .
 		($test_successes != 1 ? "es" : "") . ", $test_failures failure" .
@@ -314,7 +334,6 @@ sub get_configs
 		}
 	}
 
-	defined $explicit_config and push @configs, $explicit_config;
 	return @configs;
 }
 
@@ -331,10 +350,6 @@ sub search_test_dirs
 	my $base = shift || $path;
 
 	print "\nProcessing $base/\n" unless $quiet;
-
-	# Since we're doing something recursive,
-	# we'll print the final count at the end.
-	$test_dumpstats = 1;
 
 	if( chdir $path ) {
 		opendir( DIR, '.' ) or die "Can't open $path: $!\n";
@@ -387,7 +402,11 @@ sub explode_file
 	my $test = shift;
 	my $testfile = $test->{file};
 
-	my $dir = "/tmp/tmtest";
+	my $dir = (exists $test->{header}->{"explode-dir"} ?
+        $test->{header}->{"explode-dir"}->{value} :
+            (exists $test->{header}->{"explodedir"} ?
+            $test->{header}->{"explodedir"}->{value} : 
+                "/tmp/tmtest"));
 	if(!-d $dir) {
 		mkdir($dir, 0777) or die "Couldn't create dir $dir: $!";
 	}
@@ -548,8 +567,15 @@ sub process_test
 		print $here;
 		exit(0);
 	} else {
-		# increment number of tests run counter
-		$test_runs += 1;
+        my $tname = ($test_name ? $test_name : $test->{file});
+        if(is_subtest($test)) {
+			if(is_test_enabled($test)) {
+                print "running subtest $tname\n";
+            }
+        } else {
+            # increment number of tests run counter
+            $test_runs += 1;
+        }
 
 		# Results are stored in an array with all newlines removed
 		my $results;
@@ -560,14 +586,28 @@ sub process_test
 		if($ver && $ver =~ /^[0-9.]*$/ && $VERSION >= $ver) {
 			if(is_test_enabled($test)) {
 				$results = run_test($test);
-				clean_results($test, $results);
-				$test->{success} = check_results($test, $results);
-				if($test->{success}) {
-					$test_successes += 1;
-				} else {
-					$test_failures += 1;
-					$outword = "FAIL";
-				}
+                if(is_subtest($test)) {
+                    $test_runs += $results->{sub_tests};
+                    $test_successes += $results->{sub_successes};
+                    $test_failures += $results->{sub_failures};
+                    $outword = '';
+                    if($results->{sub_failures}) {
+                        $outword = $results->{sub_failures} .
+                            " subtest" . ($results->{sub_failures}==1?'':'s') .
+                            " failed for";
+                    } else {
+                        print "all subtests passed\n";
+                    }
+                } else {
+                    clean_results($test, $results);
+                    $test->{success} = check_results($test, $results);
+                    if($test->{success}) {
+                        $test_successes += 1;
+                    } else {
+                        $test_failures += 1;
+                        $outword = "FAIL";
+                    }
+                }
 			} else {
 				$outword = 'dis ';
 				$skip_msg = $test->{file} . " says that it is disabled.\n";
@@ -589,7 +629,7 @@ sub process_test
 				diff_results($test, $results, $origfile);
 			}
 		} else {
-			print("$outword " . $test->{file} . "\n");
+			length $outword && print "$outword $tname\n";
 		}
 	}
 }
@@ -893,11 +933,15 @@ sub read_test
 
 	$test->{header} = {};		# hash of all headers (both in this test and inherited)
 
-	# prepopulate the headers from relevant config files
+	# populate the headers from the config files in the test directory
 	if($isterminal) {
-		for my $conf (get_configs($path)) {
+		for my $conf (@base_configs, get_configs($path)) {
 			for(keys %{$conf->{header}}) {
-				$test->{header}->{$_} = $conf->{header}->{$_};
+                if($conf->{header}->{$_}->{append} && exists $test->{header}->{$_}) {
+                    $test->{header}->{$_}->{value} .= ' ' . $conf->{header}->{$_}->{value};
+                } else {
+                    $test->{header}->{$_} = $conf->{header}->{$_};
+                }
 			}
 		}
 	}
@@ -963,6 +1007,10 @@ sub read_test
 		$header->{origvalue} = $header->{value};
 		$header->{value} =~ s/^\s*|\s*$//g;
 		$header->{herepre} = $header->{herepost} = "";
+
+        if(should_interpolate($test->{header}, "headers")) {
+            $header->{key} = interpolate_headers($test->{header}, $header->{key});
+        }
 
 		# slurp a here document if the header has one.  The here document
 		# key must be the last item on the line.
@@ -1075,9 +1123,11 @@ sub read_test
             $oldval = $test->{header}->{lc $header->{key}}->{value}
                 if exists $test->{header}->{lc $header->{key}};
             $header->{value} = ($oldval ? $oldval.' ' : '') . $header->{value};
+            $header->{append} = 1;
         }
 
-		$debug && print "  ... stored header \"" . $header->{key} . "\".\n";
+		$debug && print "  ... stored header \"" . $header->{key} . "\": <<<" .
+            $header->{value} . ">>>\n";
 		push @{$test->{headers}}, $header;
 
 		my $key = lc $header->{key};
@@ -1168,6 +1218,13 @@ sub read_test
 		if($cmdbeg =~ /^\s*(\S+)\s*\:\s*(exec)?file/) {
 			my $name = $1;
 			my $exec = (defined($2) && length($2) ? 1 : 0);
+
+            # interpolate file name if we're interping headers
+            # because the file name IS a header.
+            if(should_interpolate($test->{header}, "headers")) {
+                $name = interpolate_headers($test->{header}, $name);
+            }
+
 			my $parms = {
 				desc => [@desc],
 				pre => [@command],
@@ -1374,11 +1431,12 @@ sub diff_results
 
     my $unlink;
     my $file = $test->{file};
+    my $nowdir = File::Spec->rel2abs(File::Spec->curdir());
 
-    # This is a bit of a hassle.  Since we're already using stdin
-    # to pass diff the test results, if tmtest was passed the testfile
-    # on stdin, it needs to dump it to a file.
     if($test_is_from_stdin) {
+        # This is a bit of a hassle.  Since we're already using stdin
+        # to pass diff the test results, if tmtest was passed the testfile
+        # on stdin, it needs to dump it to a file.
         die "Internal error!" unless defined $origfile;
 
         my $fh;
@@ -1388,7 +1446,14 @@ sub diff_results
         close($fh);
 
         $unlink = $file;
+    } elsif($nowdir ne $base_dir) {
+        # if we're running in a subdirectory, we need to ensure that
+        # all diffs are relative to the original directory.
+        my $absfile = File::Spec->rel2abs($test->{file});
+        chdir($base_dir) or die "Can't chdir to $base_dir: $!\n";
+        $file = File::Spec->abs2rel($absfile);
     }
+
 
     # quick sanity check before launching the diff command.
     die "$file doesn't exist!\n" unless -f $file;
@@ -1407,6 +1472,10 @@ sub diff_results
 
     if(defined $unlink) {
         unlink($unlink) or die "Could not unlink $unlink: $!\n";
+    }
+
+    if($nowdir ne $base_dir) {
+        chdir($nowdir) or die "Can't chdir to $nowdir: $!\n";
     }
 }
 
@@ -1447,6 +1516,28 @@ sub do_cmd_sub
 }
 
 
+sub is_subtest
+{
+    my $test = shift;
+
+    return (
+        (exists $test->{header}->{subtest} &&
+         is_affirmative($test->{header}->{subtest}->{value})) ||
+        (exists $test->{header}->{subtests} &&
+         is_affirmative($test->{header}->{subtests}->{value}))
+        );
+}
+
+
+sub should_run_as_subtest
+{
+    my $test = shift;
+    my $cs = shift;
+
+    return is_subtest($test) && $cs->{cmd} =~ /^tmtest/;
+}
+
+
 # Applies all relevant executable headers to determine exactly
 # what command we should run.
 
@@ -1457,6 +1548,7 @@ sub get_executable_command
 
 	my $str = '';
 	my $cmd = $cs->{cmd};
+
 	if(exists $test->{header}->{executable}) {
 		# separate out each executable
 		my %sub;
@@ -1488,7 +1580,18 @@ sub get_executable_command
 		}
 	}
 
-	return trimnl($str);
+    $str = trimnl($str);
+
+    if(should_run_as_subtest($test, $cs)) {
+        my $myname = $test->{file};
+        ($myname = $test_name) =~ s/\ .*// if $test_name;
+        my $opts = interpolate_headers($test->{header}, scan_opts($cmd));
+        $str .= " --config-dir=" . Cwd::cwd();
+        $str .= " --test-name=\"$myname $opts\"";
+        $str .= " --quiet";
+    }
+
+	return $str;
 }
 
 
@@ -1516,11 +1619,6 @@ sub create_crfile
 	my $dstfile = shift;
 
 	my $name = $file->{name};
-
-#	my $extension = "";
-#	if($name =~ /(\.[^\/]+)$/) {
-#		$extension = $1;
-#	}
 
 	my $template = "tmtest-$$.XXXXXX";
 
@@ -1566,14 +1664,43 @@ sub create_crfile
 }
 
 
+# scans the command line, pulling out headers defined with -D or
+# --define.  Returns them in a form suitable for displaying.
+sub scan_opts
+{
+    my $cmd = shift;
+
+    my @opts;
+    my @words = subtle_shellwords($cmd);
+    my $suck = 0;
+    for(@words) {
+        if($suck) {
+            push @opts, $_;
+            $suck = 0;
+        } elsif($_ =~ /^(?:\-D|\-\-define=?)(.*)/) {
+            if($1 && length($1)) {
+                push @opts, $1;
+            } else {
+                $suck = 1;
+            }
+        }
+    }
+
+    return join(" ", @opts);
+}
+
+
 sub run_test
 {
 	my $test = shift;
 
 	my $result = {
-			"stdout" => "",		# aggregated stdout
-			"stderr" => "",		# aggregated stderr
-			"exitvalue" => 0,	# nonzero if any command returned an error
+			stdout => "",		# aggregated stdout
+			stderr => "",		# aggregated stderr
+			exitvalue => 0,	# nonzero if any command returned an error
+            sub_tests => 0,
+            sub_successes => 0,
+            sub_failures => 0,
 		};
 
 	my %unlink = ();
@@ -1666,10 +1793,44 @@ sub run_test
 			# it wasn't for @-n.   This is Trestlemail ONLY!
 			$exit_value = 0 if $exit_value == 125;
 		}
-		
-		$result->{stdout} .= slurp_file($stdout) if -f $stdout;
-		$result->{stderr} .= slurp_file($stderr) if -f $stderr;
+
+        my($stdo, $stde);
+        $stdo = slurp_file($stdout) if -f $stdout;
+        $stde = slurp_file($stderr) if -f $stderr;
+		$result->{stdout} .= $stdo;
+		$result->{stderr} .= $stde;
 		$result->{exitvalue} = $exit_value;
+
+        if(should_run_as_subtest($test,$cs)) {
+            if($exit_value == 0 && (!defined($stde) || !length($stde))) {
+                for(split('\n', $stdo)) {
+                    # skip test intro and conclusion
+                    next if /\s*running / || /\s*all / || /\s*\d+\s+subtest failed/;
+                    $result->{sub_tests}++;
+                    if(/\s*ok /) {
+                        # test succeeded
+                        $result->{sub_successes}++ 
+                    } elsif(/\s*skip / || /\s*dis /) {
+                        # test was skipped or disabled
+                    } else {
+                        # if we can't recognize the result, we assume it failed.
+                        $result->{sub_failures}++;
+                    }
+                }
+            } else {
+                # subtest couldn't run for some reason.
+                $result->{sub_failures}++;
+            }
+            
+            # prepend 2 spaces to each output line
+            if(defined $stdo && length $stdo) {
+                my $stdox = $stdo;
+                $stdox =~ s/^/    /mg;
+                print $stdox;
+            }
+            # no need to indent stderr
+            print $stde if defined $stde && length $stde;
+        }
 
 		if(-f $stdout) {
 			unlink $stdout or die "Couldn't unlink $stdout: $!\n";
@@ -1683,7 +1844,7 @@ sub run_test
 		last if $exit_value or $signal_num;
 	}
 
-	# delete the transient files
+	# delete the crfiles
 	if(keys %unlink) {
 		my $num = unlink(keys %unlink);
 		$debug && print "Removed $num files: (" . join(", ", keys %unlink) . ")\n";
@@ -1701,22 +1862,39 @@ sub check_results
 	my $test = shift;
 	my $results = shift;
 
+    my $expstdout = $test->{"stdout"};
+    my $expstderr = $test->{"stderr"};
+    my $actstdout = $results->{"stdout"};
+    my $actstderr = $results->{"stderr"};
+
+    # There is probably no need to interpolate the actual stdout
+    # and stderr since the results are produced by interpolated
+    # commadns -- the output should NOT have a varaible in it!
+    if(should_interpolate($test->{header}, "stdout")) {
+        $expstdout = interpolate_headers($test->{header}, $expstdout);
+        # $actstdout = interpolate_headers($test->{header}, $actstdout);
+    }
+    if(should_interpolate($test->{header}, "stderr")) {
+        $expstderr = interpolate_headers($test->{header}, $expstderr);
+        # $actstderr = interpolate_headers($test->{header}, $actstderr);
+    }
+
 	my $success = (
-		$test->{"stdout"} eq $results->{"stdout"} &&
-		$test->{"stderr"} eq $results->{"stderr"} &&
+        $expstdout eq $actstdout &&
+        $expstderr eq $actstderr &&
 		$test->{"exitvalue"} == $results->{"exitvalue"}
 		);
 
 	if($debug) {
-		if($test->{"stdout"} ne $results->{"stdout"}) {
+		if($expstdout ne $actstdout) {
 			print "  -> stdout didn't match!\n";
-			print "  -> wanted <<<" . $test->{"stdout"} .
-				">>> but got <<<" . $results->{"stdout"} . ">>>\n";
+			print "  -> wanted <<<" . $expstdout .
+				">>> but got <<<" . $actstdout . ">>>\n";
 		}
-		if($test->{"stderr"} ne $results->{"stderr"}) {
+		if($expstderr ne $actstderr) {
 			print "  -> stderr didn't match!\n";
-			print "  -> wanted <<<" . $test->{"stderr"} .
-				">>> but got <<<" . $results->{"stderr"} . ">>>\n";
+			print "  -> wanted <<<" . $expstderr .
+				">>> but got <<<" . $actstderr . ">>>\n";
 		}
 		if($test->{"exitvalue"} != $results->{"exitvalue"}) {
 			print "  -> exitvalue didn't match!  got " .

@@ -9,7 +9,7 @@
 #     no need for the eachline -- results are collected directly.
 #     shows the output of each subtest in the main test.
 
-eachline: s/tmtest-\d+\.\S+\./tmtest-PID.ID./
+subtests: on
 
 rzsz.test: file = <<-EOL
     rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
@@ -27,43 +27,23 @@ rzsz.test: file = <<-EOL
 EOL
 
 
-tmtest -f tmtest.conf -D size=0 $(rzsz.test)
-tmtest -f tmtest.conf -D size=1 $(rzsz.test)
-tmtest -f tmtest.conf -D size=2 $(rzsz.test)
-tmtest -f tmtest.conf -D size=3 $(rzsz.test)
-tmtest -f tmtest.conf -D size=4 $(rzsz.test)
-tmtest -f tmtest.conf -D size=8 $(rzsz.test)
-tmtest -f tmtest.conf -D size=12 $(rzsz.test)
-tmtest -f tmtest.conf -D size=127 $(rzsz.test)
-tmtest -f tmtest.conf -D size=128 $(rzsz.test)
-tmtest -f tmtest.conf -D size=255 $(rzsz.test)
-tmtest -f tmtest.conf -D size=256 $(rzsz.test)
-tmtest -f tmtest.conf -D size=257 $(rzsz.test)
-tmtest -f tmtest.conf -D size=1021 $(rzsz.test)
-tmtest -f tmtest.conf -D size=1023 $(rzsz.test)
-tmtest -f tmtest.conf -D size=1024 $(rzsz.test)
-tmtest -f tmtest.conf -D size=1025 $(rzsz.test)
-tmtest -f tmtest.conf -D size=7919 $(rzsz.test)
-tmtest -f tmtest.conf -D size=8192 $(rzsz.test)
-tmtest -f tmtest.conf -D size=524289 $(rzsz.test)
+tmtest -D size=0 $(rzsz.test)
+tmtest -D size=1 $(rzsz.test)
+tmtest -D size=2 $(rzsz.test)
+tmtest -D size=3 $(rzsz.test)
+tmtest -D size=4 $(rzsz.test)
+tmtest -D size=8 $(rzsz.test)
+tmtest -D size=12 $(rzsz.test)
+tmtest -D size=127 $(rzsz.test)
+tmtest -D size=128 $(rzsz.test)
+tmtest -D size=255 $(rzsz.test)
+tmtest -D size=256 $(rzsz.test)
+tmtest -D size=257 $(rzsz.test)
+tmtest -D size=1021 $(rzsz.test)
+tmtest -D size=1023 $(rzsz.test)
+tmtest -D size=1024 $(rzsz.test)
+tmtest -D size=1025 $(rzsz.test)
+tmtest -D size=7919 $(rzsz.test)
+tmtest -D size=8192 $(rzsz.test)
+tmtest -D size=524289 $(rzsz.test)
 
------- STDOUT: exit code 0 - no error
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test
-ok   tmtest-PID.ID.test

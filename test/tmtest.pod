@@ -72,11 +72,18 @@ prefixed with a '-', and the actual results are prefixed with a '+'
 and the '-' lines are ones that the test erroneously didn't print).
 
 Note that you can pipe this output straight into the patch
-program to modify the test files.  DANGER!!!  This is the perfect way to let
-subtle bugs slip into your test deck.  You should always change your
+program to modify the test files.  This works when running tests
+in subdirectories too, but you need to call C<patch -p0> for
+patch to be able to find the input files.
+
+    tmtest -d | less        # view patch to ensure no bad changes
+    tmtest -d | patch -p0   # patch every file to match current test
+
+DANGER!!!  This is the perfect way to let
+subtle bugs slip into your test deck.  It's best to change
 testfiles by hand so that you know exactly what changed, including
-whitespace.  However, when sweeping changes are necessary, this can
-be a real time saver.
+whitespace.  When using patch, make sure you look at the patch
+before applying it.
 
 =item B<-e> B<--explode>
 
@@ -89,13 +96,24 @@ named subdir of /tmp/tmtest.
 Each command is named "cmd-N" where N is the number of the command
 in the test file.  There is also a file "RUN" which will run each
 command file in turn.  Excecuting the "RUN" file should produce
-exactly the same results as running tmtest.
+exactly the same results as running tmtest.  Note that, unlike
+running the test for real, the exploded test doesn't delete its
+L<create files/CREATE FILES> when the test finishes.
 
-=item B<-f> B<--configfile> F<file>
+=item B<-f> B<--config-file> F<file>
 
 Specifies a configuration file that tmtest should use.
-Configurations in this file override automatically-included
-ones.  See L<CONFIGURATION> for more.
+Configurations in this file override all settings except
+for the ones in the config files in the test dir and the
+ones inside the test file itself.  See L<CONFIGURATION> for more.
+
+=item B<--config-dir> F<dir>
+
+Specifies a directory that tmtest should parse for config files.
+These configurations are overridden by --config-file and declarations
+within the test file itself.  They override the default settings
+and F</etc/tmtest.conf> and F<~/.tmtest.conf>.
+See L<CONFIGURATION> for more.
 
 =item B<-h> I<NUM>
 
@@ -117,6 +135,10 @@ For example, if the following command is found in the file named
 You can run this exact test from the command line like this:
 
     tmtest -h1 01-testfile.test | command
+
+=item B<-l> B<--loud>
+
+Ensures that the final tally is always printed.  See --quiet.
 
 =item B<-o> B<--output>
 
@@ -143,6 +165,11 @@ The danger of doing this by hand is very, very slight.
 And second, in one of the few poor Unix design decisions, that command
 line won't do what you hope it will.
 
+=item B<-q> B<--quiet>
+
+Causes tmtest to be quieter in what it prints.  For instance, it suppresses
+the results tally at the end of a test.  See L</--loud>.
+
 =item B<-v> B<--verbose>
 
 This asks tmtest to output copious debug information during its run.
@@ -164,14 +191,25 @@ Print the version of the executable and exit.
 
 =head1 CONFIGURATION
 
-tmtest reads configuration out of a file named "tmtest.conf" in the
-directory containing the current testfile, and out of all its parent
-directories.  This way, you can have tests in subdirectories inherit
-settings from parent directories.
+tmtest frst reads its configuration from F</etc/tmtest.conf> and
+F<~/.tmtest.conf>.
 
-In addition to all the tmtest.conf files, you can specify a configuration
-file using the L<-f> command-line switch.  Configurations in this file
-override any automatically-included configurations.
+In addition to all the tmtest.conf files, you can specify configuration
+files using the L<-f> command-line switch.  Configurations in these files
+override any automatically-included configurations.  Files named later
+on the command line override files named earlier on the command line.
+
+You may also specify directories to search for F<tmtest.conf> files
+using the L</--config-dir> command-line option.  Directories named
+later on the command line override those named earlier.  tmtest.conf
+files in child directories override those in parent directroies.
+
+Finally, tmtest searches the directory tree containing the current
+testfile for F<tmtest.conf> files.  Configurations in
+subdirectories inherit and override the configurations in their
+parent directories.  Note that the test can include config files
+using the L<include> header as well.  Configurations included like
+this override all others.
 
 Configuration files are simply L<testfile>s, but without commands or
 exit clauses.  Their headers are added to the currently running testfile.
@@ -180,6 +218,15 @@ For example, if a "timeout: 20" header appears in a file named
 F<tmtest.conf> in the current tests's directory, it is exactly as if
 the current test had a "timeout: 20" header itself.
 
+Here is a diagram.  It says, for instance, that configuration settings
+specified using --config-dir override those set by --config-file.
+
+  /etc/tmtest.conf ->
+    ~/.tmtest.conf ->
+      --config-file=FILE ->
+        --config-dir=DIR ->
+          current test dir ->
+            testfile & files it includes
 
 =head1 BUZZWORDS
 
@@ -221,7 +268,7 @@ suffer from the same bug again.
 
 =back
 
-=head1 RETURN VALUE
+=head1 EXIT VALUE
 
 tmtest returns a nonzero error code only if one or more tests
 could not be run for some reason.  If all tests are successfully run,
