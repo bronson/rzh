@@ -4,15 +4,15 @@
  *
  * This file is released under the MIT license.  This is basically the
  * same as public domain, but absolves the author of liability.
+ *
+ * todo: add dynamic resizing.
  */
 
 
 typedef struct {
-	char *name;
 	char *buf;
-	int beg, end, len;	/* must be signed */
-	int fd, error;		/* used by clients */
-	int state;
+	int beg, end;
+	int size;
 } fifo;
 
 
@@ -29,7 +29,7 @@ typedef struct {
  * and will grow to hold maxsize chars if needed.
  * Returns NULL if fifo memory couldn't be allocated.
  */
-fifo* fifo_init(char *name, fifo *f, int initsize);
+fifo* fifo_init(fifo *f, int initsize);
 
 void fifo_clear(fifo *f);      /* empty the fifo of all data */
 int fifo_count(fifo *f);    /* number of bytes of data in the fifo */

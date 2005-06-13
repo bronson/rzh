@@ -11,19 +11,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+
 #include "fifo.h"
+#include "log.h"
 
 
 /* name is an arbitrary name for the fifo */
-fifo *fifo_init(char *name, fifo *f, int initsize)
+fifo *fifo_init(fifo *f, int initsize)
 {
-	f->name = name;
-	f->len = initsize;
+	f->size = initsize;
 	f->beg = f->end = 0;
-	f->error = 0;
-	f->fd = 0;
-	f->state = FIFO_IN_USE;
-
 	f->buf = (char*)malloc(initsize);
 	if(f->buf == NULL) return NULL;
 
@@ -38,60 +35,66 @@ void fifo_clear(fifo *f)
 }
 
 
-/* bytes in the fifo */
+/* returns the number of bytes in the fifo */
+// TODO can get rid of first f->size right?
 int fifo_count(fifo *f)
 {
-	return (f->len + f->end - f->beg) % f->len;
+	return (f->size + f->end - f->beg) % f->size;
 }
 
 
-/* free space in the fifo */
+/* returns the amount of free space left in the fifo */
+// TODO can get rid of first f->size right?
 int fifo_avail(fifo *f)
 {
-	return (f->len + f->beg - f->end - 1) % f->len;
+	return (f->size + f->beg - f->end - 1) % f->size;
 }
 
 
-/* add a character to the fifo */
+/* dangerously add a character to the fifo */
 /* make sure there's room before calling! */
 void fifo_unsafe_addchar(fifo *f, char c)
 {
 	f->buf[f->end++] = c;
-	if(f->end == f->len) f->end = 0;
+	if(f->end == f->size) f->end = 0;
 }
 
 
+/* dangerously remove a character from the fifo */
+/* make sure there's data in the fifo before calling! */
 int fifo_unsafe_getchar(fifo *f)
 {
 	int c = f->buf[f->beg++];
-	if(f->beg == f->len) f->beg = 0;
+	if(f->beg == f->size) f->beg = 0;
 	return c;
 }
 
 
-/* add a block of data to the fifo */
+/* dangerously add a block of data to the fifo */
 /* make sure there's room before calling! */
 void fifo_unsafe_append(fifo *f, const char *buf, int cnt)
 {
-	if(f->end + cnt > f->len) {
-		int n = f->len - f->end;
+	if(f->end + cnt > f->size) {
+		int n = f->size - f->end;
 		memcpy(f->buf+f->end, buf, n);
 		memcpy(f->buf, buf+n, cnt - n);
 	} else {
 		memcpy(f->buf+f->end, buf, cnt);
 	}
 
-	f->end = (f->end + cnt) % f->len;
+	f->end = (f->end + cnt) % f->size;
 }
 
 
+/* dangerously add a block before the data in the fifo */
+/* make sure there's room before calling! */
 void fifo_unsafe_prepend(fifo *f, const char *buf, int cnt)
 {
 	if(f->beg < cnt) {
 		int n = cnt - f->beg;
 		memcpy(f->buf, buf + n, f->beg);
-		memcpy(f->buf + f->len - n, buf, n);
-		f->beg = f->len - n;
+		memcpy(f->buf + f->size - n, buf, n);
+		f->beg = f->size - n;
 	} else {
 		f->beg -= cnt;
 		memcpy(f->buf + f->beg, buf, cnt);
@@ -99,17 +102,19 @@ void fifo_unsafe_prepend(fifo *f, const char *buf, int cnt)
 }
 
 
+/* dangerously removes a block of data from the fifo */
+/* make sure there's data in the fifo before calling! */
 void fifo_unsafe_unpend(fifo *f, char *buf, int cnt)
 {
-	if(f->beg + cnt > f->len) {
-		int n = f->len - f->beg;
+	if(f->beg + cnt > f->size) {
+		int n = f->size - f->beg;
 		memcpy(buf, f->buf+f->beg, n);
 		memcpy(buf+n, f->buf, cnt - n);
 	} else {
 		memcpy(buf, f->buf+f->beg, cnt);
 	}
 
-	f->beg = (f->beg + cnt) % f->len;
+	f->beg = (f->beg + cnt) % f->size;
 }
 
 /*
@@ -117,7 +122,7 @@ static void print_fifo(fifo *f)
 {
 	printf("fifo at %08lX  ", (long)f);
 	printf("%s  ", f->name);
-	printf("beg=%d end=%d len=%d", (int)f->beg, (int)f->end, (int)f->len);
+	printf("beg=%d end=%d size=%d", (int)f->beg, (int)f->end, (int)f->size);
 	printf("  count=%d avail=%d\r\n", (int)fifo_count(f), (int)fifo_avail(f));
 }
 */
@@ -125,6 +130,8 @@ static void print_fifo(fifo *f)
 
 /* partially fill the fifo by calling read() */
 /* only performs a single read call. */
+/* TODO: get rid of the copy */
+/* TODO: make it resize the buffer to try to exhaust the read */
 
 int fifo_read(fifo *f, int fd)
 {
@@ -136,14 +143,17 @@ int fifo_read(fifo *f, int fd)
 		cnt = sizeof(buf);
 	}
 
-	cnt = read(fd, buf, cnt);
+	do {
+		errno = 0;
+		cnt = read(fd, buf, cnt);
+	} while(errno == EINTR);
+
+	log_dbg("Read %d bytes from %d", cnt, fd);
 	if(cnt > 0) {
 		fifo_unsafe_append(f, buf, cnt);
 	} else if(cnt < 0) {
 		if(errno == EAGAIN) {
 			cnt = 0;
-		} else {
-			f->error = (errno ? errno : -1);
 		}
 	}
 
@@ -155,23 +165,32 @@ int fifo_read(fifo *f, int fd)
 int fifo_write(fifo *f, int fd)
 {
 	int cnt = 0;
+	int n;
 
 	if(f->beg < f->end) {
-		cnt = write(fd, f->buf+f->beg, f->end-f->beg);
-		if(cnt < 0) f->error = (errno ? errno : -1);
+		do {
+			errno = 0;
+			cnt = write(fd, f->buf+f->beg, f->end-f->beg);
+		} while(errno == EINTR);
 		if(cnt > 0) f->beg += cnt;
 	} else if(f->beg > f->end) {
-		cnt = write(fd, f->buf+f->beg, f->len-f->beg);
-		if(cnt < 0) f->error = (errno ? errno : -1);
+		do {
+			errno = 0;
+			cnt = write(fd, f->buf+f->beg, f->size-f->beg);
+		} while(errno == EINTR);
 		if(cnt > 0) {
-			f->beg = (f->beg + cnt) % f->len;
+			f->beg = (f->beg + cnt) % f->size;
 			if(f->beg == 0) {
-				int n = write(fd, f->buf, f->end);
-				if(n < 0) { cnt = n; f->error = (errno ? errno : -1); }
+				do {
+					errno = 0;
+					n = write(fd, f->buf, f->end);
+				} while(errno == EINTR);
 				if(n > 0) { f->beg = n; cnt += n; }
 			}
 		}
 	}
+
+	log_dbg("Wrote %d bytes to %d", cnt, fd);
 
 	return cnt;
 }
@@ -186,23 +205,15 @@ int fifo_copy(fifo *src, fifo *dst)
 	int ava = fifo_avail(dst);
 	if(ava < cnt) cnt = ava;
 
-	if(src->beg + cnt > src->len) {
-		int n = src->len - src->beg;
+	if(src->beg + cnt > src->size) {
+		int n = src->size - src->beg;
 		fifo_unsafe_append(dst, src->buf+src->beg, n);
 		fifo_unsafe_append(dst, src->buf, cnt - n);
 	} else {
 		fifo_unsafe_append(dst, src->buf+src->beg, cnt);
 	}
 
-	src->beg = (src->beg + cnt) % src->len;
+	src->beg = (src->beg + cnt) % src->size;
 	return cnt;
 }
 
-void fifo_flush(fifo *f)
-{
-#ifdef TCFLSH
-	ioctl(f->fd, TCFLSH, 0);
-#else       
-	lseek(f->fd, 0L, 2);
-#endif
-}

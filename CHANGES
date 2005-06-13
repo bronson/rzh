@@ -1,5 +1,6 @@
 13 Jun 2005:
- * pdpzm is excruciatingly slow.  Now forking lrzsz to handle the transfer.
+ * pdpzm works but it is excruciatingly slow.  So, the third attempt:
+   fork a new rz process to handle the zmodem transfer.
 
 13 Nov 2004: tagged version 0.2 (r27)
  * Made zmfr.c modular, sent in patches.
@@ -7,9 +8,9 @@
 
  5 Nov 2004: tagged version 0.1 (r21)
  * First version that works.  Switched to the pdpzm library because the
-   lrzsz code is supremely scary.
+   lrzsz code is amazingly brittle.
 
-13 Jan 2004:
+15 Jan 2004:
  * First version.  Uses the code from lrzsz.
 
 

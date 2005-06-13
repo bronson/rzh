@@ -1,16 +1,19 @@
 /* bgio.c
  * Scott Bronson
  *
- * Starts up background I/O.  This file was derived from ancient BSD code.
- * It should probably fall under some sort of BSD license.
+ * Starts up background I/O behind another process.
+ *
+ * NOTE: can currently only handle one ongoing bgio session because of
+ * the single global used by the signal callbacks.  Too bad C doesn't
+ * have closures...  Some dynamic alloc/dealloc would fix this if need be.
  */
 
 #include <pty.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <string.h>
-#include <termios.h>
 #include <unistd.h>
 #include <utmp.h>
 #include <sys/ioctl.h>
@@ -20,32 +23,27 @@
 #include <sys/wait.h>
 
 #include "bgio.h"
+#include "log.h"
 
 
-char *bgio_subshell_command=NULL;
-int bgio_master;
-int bgio_slave;
-
-static int child_pid;
-static struct termios stdin_termios;
-
+bgio_state *g_state;	// this sucks.
 
 
 static void window_resize(int dummy)
 {
-	struct  winsize win;
+	bgio_state *state = g_state;
+	struct winsize win;
 
 	ioctl(0, TIOCGWINSZ, (char*)&win);
-	ioctl(bgio_slave, TIOCSWINSZ, (char*)&win);
-
-	kill(child_pid, SIGWINCH);
+	ioctl(state->slave, TIOCSWINSZ, (char*)&win);
+	kill(state->child_pid, SIGWINCH);
 }
 
 
-void bgio_stop(int code)
+void bgio_stop(bgio_state *state, int code)
 {
-	tcsetattr(0, TCSAFLUSH, &stdin_termios);
-	close(bgio_master);
+	tcsetattr(0, TCSAFLUSH, &state->stdin_termios);
+	close(state->master);
 	fprintf(stderr, "\r\nrzh exited.\r\n");
 	exit(code);
 }
@@ -53,24 +51,25 @@ void bgio_stop(int code)
 
 static void sigchild(int dummy)
 {
+	bgio_state *state = g_state;
 	int pid;
 
 	while ((pid = wait3(&dummy, 0, 0)) > 0) {
-		if (pid == child_pid) {
-			bgio_stop(0);
+		if (pid == state->child_pid) {
+			bgio_stop(state, 0);
 		}
 	}
 }
 
 
-static void do_child()
+static void do_child(bgio_state *state, const char *cmd)
 {
 	char *shell;
 	char *name;
 
 	shell = getenv("SHELL");
 	if(!shell) {
-		shell = _PATH_BSHELL;
+		shell = _PATH_BSHELL;	// should be defined by stdlib.
 	}
 
 	name = strrchr(shell, '/');
@@ -80,55 +79,85 @@ static void do_child()
 		name = shell;
 	}
 
+	log_dbg("Hello from the child.  shell=\"%s\"", shell);
+
 	setsid();
-	ioctl(bgio_slave, TIOCSCTTY, 0);
+	ioctl(state->slave, TIOCSCTTY, 0);
 
-	close(bgio_master);
-	dup2(bgio_slave, 0);
-	dup2(bgio_slave, 1);
-	dup2(bgio_slave, 2);
-	close(bgio_slave);
+	close(state->master);
+	dup2(state->slave, 0);
+	dup2(state->slave, 1);
+	dup2(state->slave, 2);
+	close(state->slave);
 
-	if(bgio_subshell_command) {
-		execl(shell, name, "-c", bgio_subshell_command, 0);
+	if(cmd) {
+		execl(shell, name, "-c", cmd, 0);
+		fprintf(stderr, "Could not exec %s -c %s: %s\n",
+				shell, cmd, strerror(errno));
 	} else {
 		execl(shell, name, "-i", 0);
+		fprintf(stderr, "Could not exec %s -i: %s\n",
+				shell, strerror(errno));
 	}
+
+	log_dbg("child got fuxored.");
+
+	exit(86);
 }
 
+/**
+ * http://www.dusek.ch/manual/glibc/libc_17.html:
+ * Data written to the master side is received by the slave side as
+ * if it was the result of a user typing at an ordinary terminal,
+ * and data written to the slave side is sent to the master side as
+ * if it was written on an ordinary terminal.
+ *
+ * @param state: uninitialized memory to store the state for this conn.
+ * @param cmd: Command to run in child.  If NULL, starts the default shell.
+ *
+ * @returns: Nothing!  It prints a message to stdout and exits on failure.
+ * This should really be changed one day.
+ */
 
-void bgio_start()
+void bgio_start(bgio_state *state, const char *cmd)
 {
-	struct  winsize win;
+	struct winsize win;
 	struct termios tt;
 
-	tcgetattr(0, &stdin_termios);
+	// this is why we can only handle one session at once.
+	g_state = state;
+
+	tcgetattr(0, &state->stdin_termios);
 	ioctl(0, TIOCGWINSZ, (char *)&win);
-	if (openpty(&bgio_master, &bgio_slave, NULL, &stdin_termios, &win) < 0) {
+	if (openpty(&state->master, &state->slave, NULL,
+				&state->stdin_termios, &win) < 0) {
 		perror("calling openpty");
 		kill(0, SIGTERM);
-		bgio_stop(fork_error1);
+		fprintf(stderr, "\r\nrzh exited.\r\n");
+		exit(fork_error1);
 	}
 
-	tt = stdin_termios;
+	log_dbg("bgio: master=%d slave=%d", state->master, state->slave);
+
+	tt = state->stdin_termios;
 	cfmakeraw(&tt);
 	tt.c_lflag &= ~ECHO;
 	tcsetattr(0, TCSAFLUSH, &tt);
 
 	signal(SIGCHLD, sigchild);
 
-	child_pid = fork();
-	if(child_pid < 0) {
+	state->child_pid = fork();
+	if(state->child_pid < 0) {
 		perror("forking child");
 		kill(0, SIGTERM);
-		bgio_stop(fork_error2);
+		bgio_stop(state, fork_error2);
 	}
 
-	if(child_pid == 0) {
-		do_child();
+	if(state->child_pid == 0) {
+		do_child(state, cmd);
 		perror("executing child");
 		kill(0, SIGTERM);
-		bgio_stop(fork_error3);
+		bgio_stop(state, fork_error3);
 	}
 
 	signal(SIGWINCH, window_resize);

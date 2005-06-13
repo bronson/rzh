@@ -2,37 +2,38 @@
 # Scott Bronson
 # This file is MIT licensed (public domain, but removes author liability).
 
-VERSION=0.2
+VERSION=0.5
 
-# pdpzm files
-CSRC=zmcore.c zmfrunix.c zmextm.c error.c pdcomm.c fifo.c bgio.c scan.c zio.c rzh.c
-
+CSRC=bgio.c echo.c fifo.c io/io_select.c log.c rzh.c
+# -lrt
 
 # ------------------------ #
 
-OBJ=$(CSRC:.c=.o)
+# OBJ=$(CSRC:.c=.o)
 
-COPTS+=-isystem .
+COPTS+=-DVERSION=$(VERSION)
 COPTS+=-Wall -Werror
 COPTS+=-g
-COPTS+=-DVERSION=$(VERSION)
 
 all: rzh doc
-	@(cd test; $(MAKE))
 
-rzh: $(OBJ)
-	$(CC) $(OBJ) -lrt -lutil -o rzh
+rzh: $(CSRC)
+	$(CC) $(COPTS) $(CSRC) -lutil -o rzh
 
-%.o: %.c
-	$(CC) $(COPTS) -c $<
+#%.o: %.c
+#	$(CC) $(COPTS) -c $<
+
+%.c: %.re
+	re2c $(REOPTS) $< > $@
+	perl -pi -e 's/^\#line.*$$//' $@
 
 # autogenerate deps
 # See http://www.gnu.org/software/make/manual/html_chapter/make_4.html#SEC51
-%.dep: %.c
-	@set -e; rm -f $@; \
-		$(CC) -MM $(CPPFLAGS) $< > $@.$$$$; \
-		sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-		rm -f $@.$$$$
+#%.dep: %.c
+#	@set -e; rm -f $@; \
+#		$(CC) -MM $(CPPFLAGS) $< > $@.$$$$; \
+#		sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+#		rm -f $@.$$$$
 
 -include $(CSRC:.c=.dep)
 
@@ -43,9 +44,9 @@ doc: rzh.1
 
 clean:
 	rm -f rzh rzh.1
-	rm -f $(CSRC:.c=.o)
-	rm -f $(CSRC:.c=.dep)
-	rm -f $(CSRC:.c=.dep.*)
+#	rm -f $(CSRC:.c=.o)
+#	rm -f $(CSRC:.c=.dep)
+#	rm -f $(CSRC:.c=.dep.*)
 	@(cd test; $(MAKE) clean)
 
 dist-clean: clean
