@@ -28,6 +28,7 @@
 
 
 bgio_state *g_state;	// this sucks.  it's for the signals.
+int bgio_child_pid;		// this also sucks.  It's for the global sigchld handler.
 
 
 static void window_resize(int dummy)
@@ -49,16 +50,9 @@ void bgio_stop(bgio_state *state)
 }
 
 
-static void sigchild(int dummy)
+void stop_bgio_child()
 {
-	bgio_state *state = g_state;
-	int pid;
-
-	while ((pid = wait3(&dummy, 0, 0)) > 0) {
-		if (pid == state->child_pid) {
-			bail(0);
-		}
-	}
+	bail(0);
 }
 
 
@@ -145,6 +139,8 @@ void bgio_start(bgio_state *state, const char *cmd)
 	tt.c_lflag &= ~ECHO;
 	tcsetattr(0, TCSAFLUSH, &tt);
 
+	// This signal handler now comes from util.c because it must
+	// be shared among all the children we're forking.
 	signal(SIGCHLD, sigchild);
 
 	state->child_pid = fork();
@@ -161,6 +157,7 @@ void bgio_start(bgio_state *state, const char *cmd)
 		bail(fork_error3);
 	}
 
+	bgio_child_pid = state->child_pid;
 	signal(SIGWINCH, window_resize);
 }
 

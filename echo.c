@@ -33,9 +33,6 @@ void echo(bgio_state *bgio)
 {
 	zscanstate zscan;
 
-	log_dbg("STDIN=%d -> master=%d", STDIN_FILENO, bgio->master);
-	log_dbg("master=%d -> STDOUT=%d", bgio->master, STDOUT_FILENO);
-
 	// init the atoms
 	pipe_atom_init(&a_stdin, STDIN_FILENO);
 	pipe_atom_init(&a_stdout, STDOUT_FILENO);

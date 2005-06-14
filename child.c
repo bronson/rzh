@@ -17,6 +17,7 @@
 #include "log.h"
 #include "pipe.h"
 #include "child.h"
+#include "util.h"
 
 
 // This should trigger the receive code on the child.
@@ -25,12 +26,11 @@ static const char *startstr = "**\030B00";
 
 
 // Saves existing state so it can be restored when rz finishes.
-static sig_t save_sigchild;
-static sig_t save_sigpipe;
 static struct pipe *save_master_read_pipe;
 static struct pipe *save_master_write_pipe;
 static struct pipe *save_stdout_write_pipe;
-static io_proc save_stdin_proc;
+static io_proc save_stdin_atom_proc;
+static fifo_proc save_master_output_fifo_proc;
 
 // These atoms are set up by echo.  This is where we splice
 // the rz proces into the data stream.
@@ -42,8 +42,8 @@ pipe_atom a_stdout;	// writes to host's stdout
 struct pipe p_input_master;     // stdin/child -> master
 struct pipe p_master_output;    // master -> stdout/child
 
-static int child_pid;
-int g_slave_fd;
+int rz_child_pid;	// needed by the shared sigchld handler
+int g_slave_fd;		// must close when forking
 
 // the atoms required
 static pipe_atom a_chin;
@@ -52,22 +52,6 @@ static io_atom a_cherr;
 
 // We need a pipe to send progress information to stdout
 static struct pipe p_progress_stdout;
-
-
-void sigchild(int sig)
-{
-	log_dbg("Got sigchild!");
-	fprintf(stderr, "Got sigchild!\n");
-	// (*save_sigchild)(sig);
-}
-
-
-void sigpipe(int sig)
-{
-	log_dbg("Got sigpipe!");
-	fprintf(stderr, "Got sigpipe!\n");
-	// (*save_sigpipe)(sig);
-}
 
 
 static void parse_typing(const char *buf, int len)
@@ -131,6 +115,42 @@ static void cherr_proc(io_atom *atom, int flags)
 }
 
 
+void stop_rz_child()
+{
+	io_del(&a_chin.atom);
+	a_chin.atom.fd = 0;
+	a_chin.atom.proc = NULL;
+	a_chin.read_pipe = a_chin.write_pipe = NULL;
+
+	io_del(&a_chout.atom);
+	a_chout.atom.fd = 0;
+	a_chout.atom.proc = NULL;
+	a_chout.read_pipe = a_chout.write_pipe = NULL;
+
+	io_del(&a_cherr);
+	a_cherr.fd = 0;
+	a_cherr.proc = NULL;
+
+	a_master.read_pipe = save_master_read_pipe;
+	a_master.write_pipe = save_master_write_pipe;
+	a_stdout.write_pipe = save_stdout_write_pipe;
+	a_stdin.atom.proc = save_stdin_atom_proc;
+
+	p_input_master.read_atom = &a_stdin;
+	p_input_master.block_read = 0;
+    io_enable(&p_input_master.read_atom->atom, IO_READ);
+
+	p_master_output.write_atom = &a_stdout;
+	p_master_output.fifo.proc = save_master_output_fifo_proc;
+
+	rz_child_pid = 0;
+
+	log_dbg("Got sigchild, stopped transfer");
+	fprintf(stderr, "Got sigchild, stopped transfer\n");
+}
+
+
+
 /** Splices the given fds into the master's data stream.
  *  Also splices keyboard interpretation into stdin and
  *  progress display into stdout.
@@ -142,21 +162,26 @@ static void splice(int chstdin, int chstdout, int chstderr)
 
 	pipe_atom_init(&a_chin, chstdin);
 	pipe_atom_init(&a_chout, chstdout);
+	io_add(&a_chin.atom, 0);
+	io_add(&a_chout.atom, IO_READ);
 
 	save_master_read_pipe = a_master.read_pipe;
 	save_master_write_pipe = a_master.write_pipe;
 	save_stdout_write_pipe = a_stdout.write_pipe;
-	save_stdin_proc = a_stdin.atom.proc;
+	save_stdin_atom_proc = a_stdin.atom.proc;
 
 	// Splice child into input->master stream
 	p_input_master.read_atom = &a_chout;
+	a_chout.read_pipe = &p_input_master;
 	// New reader so reset the read status
 	p_input_master.block_read = 0;
 	io_enable(&p_input_master.read_atom->atom, IO_READ);
 
 	// Splice child into master->outpout stream
 	p_master_output.write_atom = &a_chin;
+	a_chin.write_pipe = &p_master_output;
 	// No need to keep scanning for zmodem start string
+	save_master_output_fifo_proc = p_master_output.fifo.proc;
 	p_master_output.fifo.proc = NULL;
 	// Since zscan ate the start string, re-insert it.
 	len = strlen(startstr);
@@ -172,7 +197,7 @@ static void splice(int chstdin, int chstdout, int chstderr)
 
 	// and attach a progress meter pipe to stdout
 	pipe_init(&p_progress_stdout, NULL, &a_stdout, 1024);
-	pipe_write(&p_progress_stdout, "Off we go!\n", 11);
+	pipe_write(&p_progress_stdout, "Off we go!\r\n", 11);
 
 	// Finally, sanity checking on stderr
 	io_atom_init(&a_cherr, chstderr, cherr_proc);
@@ -208,15 +233,12 @@ void start_proc(const char *buf, int size, void *refcon)
 	log_dbg("FD chstdout: rd=%d wr=%d", chstdout[0], chstdout[1]);
 	log_dbg("FD chstderr: rd=%d wr=%d", chstderr[0], chstderr[1]);
 
-	save_sigchild = signal(SIGCHLD, sigchild);
-	save_sigpipe = signal(SIGPIPE, sigpipe);
-
-	child_pid = fork();
-	if(child_pid < 0) {
+	rz_child_pid = fork();
+	if(rz_child_pid < 0) {
 		perror("forking receive process");
 		return;
 	}
-	if(child_pid == 0) {
+	if(rz_child_pid == 0) {
 		close(chstdin[1]);
 		close(chstdout[0]);
 		close(chstderr[0]);
