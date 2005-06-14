@@ -7,6 +7,7 @@
 
 
 #include "fifo.h"
+#include "log.h"
 #include "zscan.h"
 
 #include <stdio.h>
@@ -136,11 +137,11 @@ void zscan(zscanstate *conn, const char *cp, const char *ce, fifo *f)
 			if(cp < ce) {
 				if(*cp == '\030') {
 					crNext(1);
-					if(*cp != 'B') {
+					if(*cp == 'B') {
 						crNext(2);
-						if(*cp != '0') {
+						if(*cp == '0') {
 							crNext(3);
-							if(*cp != '0') {
+							if(*cp == '0') {
 								extern void bail(int);
 								fprintf(stderr, "STARTING!!!\n");
 								bail(0);
