@@ -40,6 +40,7 @@ void echo(bgio_state *bgio)
 	pipe_atom_init(&a_stdin, STDIN_FILENO);
 	pipe_atom_init(&a_stdout, STDOUT_FILENO);
 	pipe_atom_init(&a_master, bgio->master);
+	g_slave_fd = bgio->slave;	// save so we can close when forking
 
 	// create the fifos that read from and write to the atoms.
 	pipe_init(&p_input_master, &a_stdin, &a_master, 8192);

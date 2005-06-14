@@ -10,7 +10,7 @@
 
 typedef struct {
 	int master;				// the fd of the master
-	int slave;					// the fd of the slave
+	int slave;				// the fd of the slave (needed for winch)
 	int child_pid;					// the pid of the subprocess
 	struct termios stdin_termios;	// original termios to restore when finished
 } bgio_state;

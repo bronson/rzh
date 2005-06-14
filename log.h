@@ -12,7 +12,7 @@ void log_set_priority(int prio);
 int log_get_priority();
 
 void log_init(const char *file);
-void log_exit();
+void log_close();
 
 // we only use logerr, logwarn, loginfo, and logdebug.
 #define log_emerg(...) log_msg(LOG_EMERG, __VA_ARGS__)

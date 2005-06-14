@@ -43,6 +43,7 @@ struct pipe p_input_master;     // stdin/child -> master
 struct pipe p_master_output;    // master -> stdout/child
 
 static int child_pid;
+int g_slave_fd;
 
 // the atoms required
 static pipe_atom a_chin;
@@ -56,14 +57,16 @@ static struct pipe p_progress_stdout;
 void sigchild(int sig)
 {
 	log_dbg("Got sigchild!");
-	(*save_sigchild)(sig);
+	fprintf(stderr, "Got sigchild!\n");
+	// (*save_sigchild)(sig);
 }
 
 
 void sigpipe(int sig)
 {
 	log_dbg("Got sigpipe!");
-	(*save_sigpipe)(sig);
+	fprintf(stderr, "Got sigpipe!\n");
+	// (*save_sigpipe)(sig);
 }
 
 
@@ -140,8 +143,6 @@ static void splice(int chstdin, int chstdout, int chstderr)
 	pipe_atom_init(&a_chin, chstdin);
 	pipe_atom_init(&a_chout, chstdout);
 
-	save_sigchild = signal(SIGCHLD, sigchild);
-	save_sigpipe = signal(SIGPIPE, sigpipe);
 	save_master_read_pipe = a_master.read_pipe;
 	save_master_write_pipe = a_master.write_pipe;
 	save_stdout_write_pipe = a_stdout.write_pipe;
@@ -184,12 +185,11 @@ static void splice(int chstdin, int chstdout, int chstderr)
 
 void start_proc(const char *buf, int size, void *refcon)
 {
+	extern void fdcheck();
+
 	int chstdin[2];
 	int chstdout[2];
 	int chstderr[2];
-
-	fprintf(stderr, "STARTING\n\n");
-	bail(83);
 
 	if(pipe(chstdin) < 0) {
 		perror("creating output pipes");
@@ -203,6 +203,13 @@ void start_proc(const char *buf, int size, void *refcon)
 		perror("creating input pipes");
 		bail(78);
 	}
+
+	log_dbg("FD chstdin: rd=%d wr=%d", chstdin[0], chstdin[1]);
+	log_dbg("FD chstdout: rd=%d wr=%d", chstdout[0], chstdout[1]);
+	log_dbg("FD chstderr: rd=%d wr=%d", chstderr[0], chstderr[1]);
+
+	save_sigchild = signal(SIGCHLD, sigchild);
+	save_sigpipe = signal(SIGPIPE, sigpipe);
 
 	child_pid = fork();
 	if(child_pid < 0) {
@@ -222,7 +229,14 @@ void start_proc(const char *buf, int size, void *refcon)
 		close(chstdout[1]);
 		close(chstderr[1]);
 
-		execl("/usr/bin/rz", "rz");
+		close(a_master.atom.fd);
+		close(g_slave_fd);
+		log_close();
+		io_exit();
+
+		fdcheck();
+
+		execl("/usr/bin/rz", "rz", 0);
 		fprintf(stderr, "Could not exec /usr/bin/rz: %s\n",
 				strerror(errno));
 		exit(89);

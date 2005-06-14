@@ -236,6 +236,11 @@ void pipe_atom_init(pipe_atom *atom, int fd)
 }
 
 
+/** It's OK for either ratom or watom to be NULL resulting in an unterminated
+ *  pipe.  Use this, for instance, when a pipe's data is coming from a procedure
+ *  rather than from another pipe.
+ */
+
 void pipe_init(struct pipe *pipe, pipe_atom *ratom, pipe_atom *watom, int size)
 {
 	fifo_init(&pipe->fifo, size);
@@ -245,9 +250,9 @@ void pipe_init(struct pipe *pipe, pipe_atom *ratom, pipe_atom *watom, int size)
 	}
 
 	pipe->read_atom = ratom;
-	ratom->read_pipe = pipe;
+	if(ratom) ratom->read_pipe = pipe;
 	pipe->write_atom = watom;
-	watom->write_pipe = pipe;
+	if(watom) watom->write_pipe = pipe;
 
 	pipe->block_read = 0;
 

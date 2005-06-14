@@ -43,6 +43,7 @@ void log_init(const char *path)
 			exit(99);
 		}
 		fprintf(g_logfile, " -=-\n");
+		fprintf(g_logfile, "FD Log: %d\n", fileno(g_logfile));
 		fflush(g_logfile);
 	}
 }

@@ -23,6 +23,7 @@
 #include "echo.h"
 #include "io/io.h"
 #include "log.h"
+#include "util.h"
 
 
 static int verbosity = 0;			// print notification/debug messages
@@ -184,17 +185,23 @@ int main(int argc, char **argv)
 	int val;
 	bgio_state bgio;
 
+	g_highest_fd = find_highest_fd();
+
 	process_args(argc, argv);
 
-	io_init();
 	log_init("/tmp/rzh_log");
+	log_dbg("Highest numbered fd on entry: %d", g_highest_fd);
 
 	// after this call, everything must exit past bgio_stop
 	bgio_start(&bgio, NULL);
 
+	log_dbg("FD Master: %d", bgio.master);
+	log_dbg("FD Slave: %d", bgio.slave);
+
 	val = setjmp(g_bail);
 	if(val == 0) {
 		// perform operations
+		io_init();
 		run(&bgio);
 	}
 

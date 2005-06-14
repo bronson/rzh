@@ -16,6 +16,7 @@
 
 todo: set all buffers to 1 byte and see what happens
 todo: add specifying the rz program to use
+todo: need to repair the bailage all over the place.  Consistent exit codes at least.
 
 
 todo: add progress disply

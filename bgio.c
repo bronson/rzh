@@ -24,9 +24,10 @@
 
 #include "bgio.h"
 #include "log.h"
+#include "util.h"
 
 
-bgio_state *g_state;	// this sucks.
+bgio_state *g_state;	// this sucks.  it's for the signals.
 
 
 static void window_resize(int dummy)
@@ -86,6 +87,10 @@ static void do_child(bgio_state *state, const char *cmd)
 	dup2(state->slave, 1);
 	dup2(state->slave, 2);
 	close(state->slave);
+
+	// no need to io_exit since it hasn't been entered yet
+	log_close();
+	fdcheck();
 
 	if(cmd) {
 		execl(shell, name, "-c", cmd, 0);
