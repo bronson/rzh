@@ -20,7 +20,7 @@ typedef struct {
 void bgio_start(bgio_state *state, const char *cmd);
 
 // Shuts down everything started by bgio_start, then exits.
-void bgio_stop(bgio_state *state, int code);
+void bgio_stop(bgio_state *state);
 
 
 // result codes returned by exit().
@@ -34,4 +34,9 @@ enum {
 	fork_error3=7,
 	process_error=10,
 };
+
+
+// This must be implemented by the caller.  It is called in the event
+// of a fatal error.  It must never return.
+extern void bail(int val);
 

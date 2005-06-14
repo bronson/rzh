@@ -81,9 +81,11 @@ void io_exit();     ///< Call this routine once when your program terminates.  I
  * @returns The appropriate error code or 0 if there was no error.
  */
 
-int io_add(io_atom *atom, int flags);
-int io_set(io_atom *atom, int flags);   ///< Sets the io_atom::flags on the given atom to flags.
-int io_del(io_atom *atom);              ///< Removes the atom from the list 
+int io_add(io_atom *atom, int flags);		///< Adds the given atom to the list of files being watched.
+int io_enable(io_atom *atom, int flags);	///< Enables the given flag(s) without affecting any others.
+int io_disable(io_atom *atom, int flags);	///< Disables the given flag(s) without affecting any others.
+int io_set(io_atom *atom, int flags);   	///< Sets the io_atom::flags on the given atom to flags.
+int io_del(io_atom *atom);              	///< Removes the atom from the list 
 
 /// Waits for an event, then handles it.  Stops waiting if timeout occurs.
 /// Specify MAXINT for no timeout.  The timeout is specified in ms.

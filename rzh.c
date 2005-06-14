@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <time.h>
+#include <setjmp.h>
 #include <unistd.h>
 #include <getopt.h>
 
@@ -23,9 +24,11 @@
 #include "log.h"
 
 
-int verbosity = 0;			// print notification/debug messages
-int quiet = 0;				// suppress status messages
-const char *dldir = NULL;	// download files to this directory
+static int verbosity = 0;			// print notification/debug messages
+static int quiet = 0;				// suppress status messages
+static const char *dldir = NULL;	// download files to this directory
+
+static jmp_buf g_bail;
 
 
 #if !defined(PATH_MAX)
@@ -34,6 +37,12 @@ const char *dldir = NULL;	// download files to this directory
 
 #define xstringify(x) #x
 #define stringify(x) xstringify(x)
+
+
+void bail(int val)
+{
+	longjmp(g_bail, val);
+}
 
 
 static int chdir_to_dldir()
@@ -144,25 +153,38 @@ static void process_args(int argc, char **argv)
 }
 
 
+void run(bgio_state *bgio)
+{
+	if(chdir_to_dldir() != 0) {
+		bail(25);
+	}
+
+	print_greeting();
+	echo(bgio);
+}
+
+
 int main(int argc, char **argv)
 {
+	int val;
 	bgio_state bgio;
 
 	process_args(argc, argv);
 
 	io_init();
 	log_init("/tmp/rzh_log");
+
+	// after this call, everything must exit past bgio_stop
 	bgio_start(&bgio, NULL);
 
-	if(chdir_to_dldir() != 0) {
-		bgio_stop(&bgio, chdir_error);
-		exit(1);
+	val = setjmp(g_bail);
+	if(val == 0) {
+		// perform operations
+		run(&bgio);
 	}
 
-	print_greeting();
-	echo(&bgio);
-
+	bgio_stop(&bgio);
 	io_exit();
-	return 0;
+	exit(val);
 }
 

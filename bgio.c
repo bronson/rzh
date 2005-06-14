@@ -40,12 +40,11 @@ static void window_resize(int dummy)
 }
 
 
-void bgio_stop(bgio_state *state, int code)
+void bgio_stop(bgio_state *state)
 {
 	tcsetattr(0, TCSAFLUSH, &state->stdin_termios);
 	close(state->master);
 	fprintf(stderr, "\r\nrzh exited.\r\n");
-	exit(code);
 }
 
 
@@ -56,7 +55,7 @@ static void sigchild(int dummy)
 
 	while ((pid = wait3(&dummy, 0, 0)) > 0) {
 		if (pid == state->child_pid) {
-			bgio_stop(state, 0);
+			bail(0);
 		}
 	}
 }
@@ -79,8 +78,6 @@ static void do_child(bgio_state *state, const char *cmd)
 		name = shell;
 	}
 
-	log_dbg("Hello from the child.  shell=\"%s\"", shell);
-
 	setsid();
 	ioctl(state->slave, TIOCSCTTY, 0);
 
@@ -100,8 +97,6 @@ static void do_child(bgio_state *state, const char *cmd)
 				shell, strerror(errno));
 	}
 
-	log_dbg("child got fuxored.");
-
 	exit(86);
 }
 
@@ -116,7 +111,8 @@ static void do_child(bgio_state *state, const char *cmd)
  * @param cmd: Command to run in child.  If NULL, starts the default shell.
  *
  * @returns: Nothing!  It prints a message to stdout and exits on failure.
- * This should really be changed one day.
+ * This should really be changed one day.  (it's been mostly changed...
+ * it only exits if it couldn't allocate a pty.  else it exits through bail).
  */
 
 void bgio_start(bgio_state *state, const char *cmd)
@@ -150,14 +146,14 @@ void bgio_start(bgio_state *state, const char *cmd)
 	if(state->child_pid < 0) {
 		perror("forking child");
 		kill(0, SIGTERM);
-		bgio_stop(state, fork_error2);
+		bail(fork_error2);
 	}
 
 	if(state->child_pid == 0) {
 		do_child(state, cmd);
 		perror("executing child");
 		kill(0, SIGTERM);
-		bgio_stop(state, fork_error3);
+		bail(fork_error3);
 	}
 
 	signal(SIGWINCH, window_resize);

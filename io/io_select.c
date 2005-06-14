@@ -101,6 +101,56 @@ int io_set(io_atom *atom, int flags)
 }
 
 
+int io_enable(io_atom *atom, int flags)
+{
+	if(atom->fd < 0 || atom->fd > FD_SETSIZE) {
+		return -ERANGE;
+	}
+	if(!connections[atom->fd]) {
+		return -EALREADY;
+	}
+
+	if(flags & IO_READ) {
+		FD_SET(atom->fd, &fd_read);
+	}
+
+	if(flags & IO_WRITE) {
+		FD_SET(atom->fd, &fd_write);
+	}
+
+	if(flags & IO_EXCEPT) {
+		FD_SET(atom->fd, &fd_except);
+	}
+	
+	return 0;
+}
+
+
+int io_disable(io_atom *atom, int flags)
+{
+	if(atom->fd < 0 || atom->fd > FD_SETSIZE) {
+		return -ERANGE;
+	}
+	if(!connections[atom->fd]) {
+		return -EALREADY;
+	}
+
+	if(flags & IO_READ) {
+		FD_CLR(atom->fd, &fd_read);
+	}
+
+	if(flags & IO_WRITE) {
+		FD_CLR(atom->fd, &fd_write);
+	}
+
+	if(flags & IO_EXCEPT) {
+		FD_CLR(atom->fd, &fd_except);
+	}
+
+	return 0;
+}
+
+
 int io_del(io_atom *atom)
 {
 	int fd = atom->fd;
