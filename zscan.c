@@ -21,7 +21,7 @@ void zscanstate_init(zscanstate *conn)
 }
 
 
-static void fifo_append_rz(fifo *f, int gotrz)
+static void fifo_append_rz(struct fifo *f, int gotrz)
 {
 	switch(gotrz) {
 		case RZNL:
@@ -39,7 +39,7 @@ static void fifo_append_rz(fifo *f, int gotrz)
 }
 
 
-static void fifo_append_stars(fifo *f, int starcnt)
+static void fifo_append_stars(struct fifo *f, int starcnt)
 {
 	int i;
 
@@ -65,7 +65,7 @@ static void fifo_append_stars(fifo *f, int starcnt)
 	} while(0)
 
 
-void zscan(zscanstate *conn, const char *cp, const char *ce, fifo *f)
+void zscan(zscanstate *conn, const char *cp, const char *ce, struct fifo *f)
 {
 	const char *cb;
 

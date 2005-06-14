@@ -17,7 +17,7 @@
 
 
 /* name is an arbitrary name for the fifo */
-fifo *fifo_init(fifo *f, int initsize)
+struct fifo *fifo_init(struct fifo *f, int initsize)
 {
 	f->size = initsize;
 	f->beg = f->end = 0;
@@ -30,7 +30,7 @@ fifo *fifo_init(fifo *f, int initsize)
 
 
 /* erase all data in the fifo */
-void fifo_clear(fifo *f)
+void fifo_clear(struct fifo *f)
 {
 	f->beg = f->end = 0;
 }
@@ -38,7 +38,7 @@ void fifo_clear(fifo *f)
 
 /* returns the number of bytes in the fifo */
 // TODO can get rid of first f->size right?
-int fifo_count(fifo *f)
+int fifo_count(struct fifo *f)
 {
 	return (f->size + f->end - f->beg) % f->size;
 }
@@ -46,7 +46,7 @@ int fifo_count(fifo *f)
 
 /* returns the amount of free space left in the fifo */
 // TODO can get rid of first f->size right?
-int fifo_avail(fifo *f)
+int fifo_avail(struct fifo *f)
 {
 	return (f->size + f->beg - f->end - 1) % f->size;
 }
@@ -54,7 +54,7 @@ int fifo_avail(fifo *f)
 
 /* dangerously add a character to the fifo */
 /* make sure there's room before calling! */
-void fifo_unsafe_addchar(fifo *f, char c)
+void fifo_unsafe_addchar(struct fifo *f, char c)
 {
 	f->buf[f->end++] = c;
 	if(f->end == f->size) f->end = 0;
@@ -63,7 +63,7 @@ void fifo_unsafe_addchar(fifo *f, char c)
 
 /* dangerously remove a character from the fifo */
 /* make sure there's data in the fifo before calling! */
-int fifo_unsafe_getchar(fifo *f)
+int fifo_unsafe_getchar(struct fifo *f)
 {
 	int c = f->buf[f->beg++];
 	if(f->beg == f->size) f->beg = 0;
@@ -73,7 +73,7 @@ int fifo_unsafe_getchar(fifo *f)
 
 /* dangerously add a block of data to the fifo */
 /* make sure there's room before calling! */
-void fifo_unsafe_append(fifo *f, const char *buf, int cnt)
+void fifo_unsafe_append(struct fifo *f, const char *buf, int cnt)
 {
 	if(f->end + cnt > f->size) {
 		int n = f->size - f->end;
@@ -89,7 +89,7 @@ void fifo_unsafe_append(fifo *f, const char *buf, int cnt)
 
 /* dangerously add a block before the data in the fifo */
 /* make sure there's room before calling! */
-void fifo_unsafe_prepend(fifo *f, const char *buf, int cnt)
+void fifo_unsafe_prepend(struct fifo *f, const char *buf, int cnt)
 {
 	if(f->beg < cnt) {
 		int n = cnt - f->beg;
@@ -105,7 +105,7 @@ void fifo_unsafe_prepend(fifo *f, const char *buf, int cnt)
 
 /* dangerously removes a block of data from the fifo */
 /* make sure there's data in the fifo before calling! */
-void fifo_unsafe_unpend(fifo *f, char *buf, int cnt)
+void fifo_unsafe_unpend(struct fifo *f, char *buf, int cnt)
 {
 	if(f->beg + cnt > f->size) {
 		int n = f->size - f->beg;
@@ -134,7 +134,7 @@ static void print_fifo(fifo *f)
 /* TODO: get rid of the copy */
 /* TODO: make it resize the buffer to try to exhaust the read */
 
-int fifo_read(fifo *f, int fd)
+int fifo_read(struct fifo *f, int fd)
 {
 	char buf[BUFSIZ];
 	int cnt;
@@ -171,7 +171,7 @@ int fifo_read(fifo *f, int fd)
 
 
 /* attempt to empty the fifo by calling write() */
-int fifo_write(fifo *f, int fd)
+int fifo_write(struct fifo *f, int fd)
 {
 	int cnt = 0;
 	int n;
@@ -208,7 +208,7 @@ int fifo_write(fifo *f, int fd)
 /* copies as much of the contents of one fifo as possible
  * to the other */
 
-int fifo_copy(fifo *src, fifo *dst)
+int fifo_copy(struct fifo *src, struct fifo *dst)
 {
 	int cnt = fifo_count(src);
 	int ava = fifo_avail(dst);

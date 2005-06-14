@@ -17,5 +17,5 @@ typedef struct {
 
 
 void zscanstate_init(zscanstate *conn);
-void zscan(zscanstate *conn, const char *cb, const char *ce, fifo *f);
+void zscan(zscanstate *conn, const char *cb, const char *ce, struct fifo *f);
 
