@@ -142,14 +142,8 @@ void zscan(zscanstate *conn, const char *cp, const char *ce, fifo *f)
 						if(*cp == '0') {
 							crNext(3);
 							if(*cp == '0') {
-								extern void bail(int);
-								fprintf(stderr, "STARTING!!!\n");
-								bail(0);
 								zscanstate_init(conn);
-								// bingo!  start transfer
-								// copy the rest of this data to new fifo
-								// ensure all further data goes to new fifo
-								// until transfer ends
+								(*conn->start_proc)(cp, ce-cp, conn->start_refcon);
 								return;
 							}
 						}

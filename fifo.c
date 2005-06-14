@@ -152,7 +152,9 @@ int fifo_read(fifo *f, int fd)
 	log_dbg("Read %d bytes from %d", cnt, fd);
 
 	if(f->proc) {
+		int old = fifo_avail(f);
 		(*f->proc)(f, buf, cnt);
+		cnt = old - fifo_avail(f);
 	} else {
 		// copy the read data into the buffer
 		if(cnt > 0) {

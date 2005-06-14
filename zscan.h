@@ -4,10 +4,15 @@
  */
 
 
+typedef void (*zstart_proc)(const char *buf, int size, void *refcon);
+
 typedef struct {
 	int parse_state;
 	enum { RZNONE, RZNL, RZCR, RZCRNL } gotrz;
 	int starcnt;
+
+	zstart_proc start_proc;
+	void *start_refcon;
 } zscanstate;
 
 

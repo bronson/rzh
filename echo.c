@@ -59,25 +59,29 @@ int set_nonblock(int fd)
 
 void async_fifo_read(async_fifo *fifo)
 {
-	int cnt;
-
 	assert(fifo_avail(&fifo->ff) > 0);
-	cnt = fifo_read(&fifo->ff, fifo->ratom->atom.fd);
-	assert(fifo_count(&fifo->ff) > 0);
+	fifo_read(&fifo->ff, fifo->ratom->atom.fd);
 
-	// immediately try to write it out
+	// perhaps the fifo proc sucked up all the data.
+	if(!fifo_count(&fifo->ff))
+		return;
+
+	// immediately try to write the fifo out
 	fifo_write(&fifo->ff, fifo->watom->atom.fd);
 
-	// if there's still data in the fifo, then the last write didn't
+	// return if we're all done (should be the normal case)
+	if(!fifo_count(&fifo->ff))
+		return;
+
+	// There's still data in the fifo so the last write didn't
 	// complete.  We need to be notified when we can write again.
-	if(fifo_count(&fifo->ff)) {
-		io_enable(&fifo->watom->atom, IO_WRITE);
-		// if there's no more room in the fifo then we need to stop trying
-		// to read.  We'll restart reading when we manage to write some bytes.
-		if(!fifo_avail(&fifo->ff)) {
-			io_disable(&fifo->ratom->atom, IO_READ);
-			fifo->block_read = 1;
-		}
+	io_enable(&fifo->watom->atom, IO_WRITE);
+
+	// if there's no more room in the fifo then we need to stop trying
+	// to read.  We'll restart reading when we manage to write some bytes.
+	if(!fifo_avail(&fifo->ff)) {
+		io_disable(&fifo->ratom->atom, IO_READ);
+		fifo->block_read = 1;
 	}
 }
 
@@ -152,12 +156,20 @@ void async_fifo_init(async_fifo *fifo, fifo_atom *ratom, fifo_atom *watom)
 }
 
 
+void start_proc(const char *buf, int size, void *refcon)
+{
+//	async_fifo *af = (async_fifo*)refcon;
+	fprintf(stderr, "Starting!!!\n");
+	bail(99);
+}
+
+
 /* Analyze all data moving from the master to stdout.  If we notice a
  * zmodem transfer start request, fork off a zmodem process to handle it.
  */
-void f_mo_proc(fifo *f, const char *buf, int cnt)
+void f_mo_proc(fifo *f, const char *buf, int size)
 {
-	zscan(f->refcon, buf, buf+cnt, f);
+	zscan(f->refcon, buf, buf+size, f);
 }
 
 
@@ -183,6 +195,9 @@ void echo(bgio_state *bgio)
 
 	// add the zmodem start scanner
 	zscanstate_init(&zscan);
+	zscan.start_proc = start_proc;
+	zscan.start_refcon = &f_mo;
+
 	f_mo.ff.proc = f_mo_proc;
 	f_mo.ff.refcon = &zscan;
 
