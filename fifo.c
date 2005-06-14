@@ -129,6 +129,42 @@ static void print_fifo(fifo *f)
 */
 
 
+const char* sanitize(const char *s, int n)
+{
+	int i;
+	static char buf[64];
+
+	if(n > 64) {
+		n = 64;
+	}
+
+	for(i=0; i<n; i++) {
+		if(s[i] < 32) {
+			buf[i] = '#';
+		} else {
+			buf[i] = s[i];
+		}
+	}
+
+	return buf;
+}
+
+
+void logio(const char *name, int fd, const char *buf, int cnt, int act)
+{
+	int n = act;
+	char *cont = "";
+	if(n > 24) {
+		n = 24;
+		cont = "...";
+	}
+
+	log_dbg("%s %d bytes from %d: (%d)\t\t<<%.*s>>%s", name, act, fd, cnt, n,
+			sanitize(buf, n), cont);
+
+}
+
+
 /* partially fill the fifo by calling read() */
 /* only performs a single read call. */
 /* TODO: get rid of the copy */
@@ -137,7 +173,7 @@ static void print_fifo(fifo *f)
 int fifo_read(struct fifo *f, int fd)
 {
 	char buf[BUFSIZ];
-	int cnt;
+	int cnt, n;
 
 	cnt = fifo_avail(f);
 	if(cnt > sizeof(buf)) {
@@ -146,10 +182,11 @@ int fifo_read(struct fifo *f, int fd)
 
 	do {
 		errno = 0;
-		cnt = read(fd, buf, cnt);
-	} while(cnt == -1 && errno == EINTR);
+		n = read(fd, buf, cnt);
+	} while(n == -1 && errno == EINTR);
 
-	log_dbg("Read %d bytes from %d", cnt, fd);
+	logio("Read", fd, buf, cnt, n);
+	cnt = n;
 
 	if(f->proc) {
 		int old = fifo_avail(f);
@@ -180,12 +217,14 @@ int fifo_write(struct fifo *f, int fd)
 		do {
 			errno = 0;
 			cnt = write(fd, f->buf+f->beg, f->end-f->beg);
+			logio("Wrote", fd, f->buf+f->beg, f->end-f->beg, cnt);
 		} while(cnt == -1 && errno == EINTR);
 		if(cnt > 0) f->beg += cnt;
 	} else if(f->beg > f->end) {
 		do {
 			errno = 0;
 			cnt = write(fd, f->buf+f->beg, f->size-f->beg);
+			logio("Wrote", fd, f->buf+f->beg, f->size-f->beg, cnt);
 		} while(cnt == -1 && errno == EINTR);
 		if(cnt > 0) {
 			f->beg = (f->beg + cnt) % f->size;
@@ -193,13 +232,13 @@ int fifo_write(struct fifo *f, int fd)
 				do {
 					errno = 0;
 					n = write(fd, f->buf, f->end);
+					logio("Wrote", fd, f->buf, f->end, cnt);
 				} while(cnt == -1 && errno == EINTR);
 				if(n > 0) { f->beg = n; cnt += n; }
 			}
 		}
 	}
 
-	log_dbg("Wrote %d bytes to %d", cnt, fd);
 
 	return cnt;
 }

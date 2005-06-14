@@ -47,9 +47,12 @@ void sigchild(int tt)
 	int pid;
 	int status;
 
+	log_dbg("Got sigchld");
+
 	// Reap as many children as we can.
 	for(;;) {
 		pid = waitpid(-1, &status, WNOHANG);
+		log_dbg(" ... pid=%d status=%d", pid, status);
 		if(pid == 0) {
 			log_wtf("waitpid returned 0?!");
 			break;

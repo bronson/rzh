@@ -56,8 +56,12 @@ static struct pipe p_progress_stdout;
 
 static void parse_typing(const char *buf, int len)
 {
+	char s[256];
+
+	snprintf(s, sizeof(s), "KEY: len=%d <<%.*s>>\r\n", len, len, buf);
+
 	log_dbg("TYPING (%d chars): %.*s", len, len, buf);
-	pipe_write(&p_progress_stdout, "KEY!\n", 5);
+	pipe_write(&p_progress_stdout, s, strlen(s));
 }
 
 
@@ -117,6 +121,9 @@ static void cherr_proc(io_atom *atom, int flags)
 
 void stop_rz_child()
 {
+	log_dbg("Got sigchild, stopped transfer");
+	fprintf(stderr, "Got sigchild, stopped transfer\n");
+
 	io_del(&a_chin.atom);
 	a_chin.atom.fd = 0;
 	a_chin.atom.proc = NULL;
@@ -144,9 +151,6 @@ void stop_rz_child()
 	p_master_output.fifo.proc = save_master_output_fifo_proc;
 
 	rz_child_pid = 0;
-
-	log_dbg("Got sigchild, stopped transfer");
-	fprintf(stderr, "Got sigchild, stopped transfer\n");
 }
 
 
