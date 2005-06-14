@@ -1,11 +1,9 @@
 /* echo.c
- * 1 Nov 2004
+ * 13 June 2005
  * Scott Bronson
- * 
- * The main routine for the rzh utility.
  *
- * This file is released under the MIT license.  This is basically the
- * same as public domain but absolves the author of liability.
+ * Uses fifos and the io lib to shuttle data back and forth.
+ * Has procs to modify the data streams as they pass.
  */
 
 #include <assert.h>
@@ -27,6 +25,8 @@
 struct async_fifo;
 
 
+// Because a single atom may be used for reading one fifo while
+// simultaneously writing another, it needs its own structure.
 typedef struct {
 	io_atom atom;				// represents a file or socket
 	struct async_fifo *rfifo;	// this fifo uses this atom to obtain its data from
@@ -55,10 +55,13 @@ int set_nonblock(int fd)
 }
 
 
+
 void async_fifo_read(async_fifo *fifo)
 {
+	int cnt;
+
 	assert(fifo_avail(&fifo->ff) > 0);
-	fifo_read(&fifo->ff, fifo->ratom->atom.fd);
+	cnt = fifo_read(&fifo->ff, fifo->ratom->atom.fd);
 	assert(fifo_count(&fifo->ff) > 0);
 
 	// immediately try to write it out
@@ -112,27 +115,6 @@ void atomproc(io_atom *aa, int flags)
 }
 
 
-#if 0
-/**
- * like io_add() but also works if the atom has already been added.
- * NOTE THAT IT WILL NOT REPLACE THE EXISTING PROC.  It is up to the
- * caller to ensure that both procs are equal.
- */
-
-int io_multi_add(io_atom *atom, int flags)
-{
-	int err;
-
-	err = io_add(atom, flags);
-	if(err == -EALREADY) {
-		err = io_enable(atom, flags);
-	}
-
-	return err;
-}
-#endif
-
-
 void fifo_atom_init(fifo_atom *atom, int fd)
 {
 	int err;
@@ -151,14 +133,15 @@ void fifo_atom_init(fifo_atom *atom, int fd)
 
 
 void async_fifo_init(async_fifo *fifo, fifo_atom *ratom,
-		fifo_atom *watom, int size)
+		fifo_atom *watom, fifo_proc proc)
 {
-	fifo_init(&fifo->ff, size);
+	fifo_init(&fifo->ff, BUFSIZ);
 	if(fifo->ff.buf == NULL) {
 		perror("could not allocate fifo");
 		bail(99);
 	}
 
+	fifo->ff.proc = proc;
 	fifo->ratom = ratom;
 	ratom->rfifo = fifo;
 	fifo->watom = watom;
@@ -188,8 +171,8 @@ void echo(bgio_state *bgio)
 	fifo_atom_init(&a_master, bgio->master);
 
 	// init the fifos
-	async_fifo_init(&f_im, &a_stdin, &a_master, BUFSIZ);
-	async_fifo_init(&f_mo, &a_master, &a_stdout, BUFSIZ);
+	async_fifo_init(&f_im, &a_stdin, &a_master, NULL);
+	async_fifo_init(&f_mo, &a_master, &a_stdout, NULL);
 
 	for(;;) {
 		io_wait(MAXINT);

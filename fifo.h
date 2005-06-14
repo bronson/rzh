@@ -8,11 +8,15 @@
  * todo: add dynamic resizing.
  */
 
+struct fifo;
 
-typedef struct {
+typedef void (*fifo_proc)(struct fifo *ff, char *buf, int size);
+
+typedef struct fifo {
 	char *buf;
 	int beg, end;
 	int size;
+	fifo_proc proc;
 } fifo;
 
 

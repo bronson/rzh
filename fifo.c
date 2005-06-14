@@ -22,6 +22,7 @@ fifo *fifo_init(fifo *f, int initsize)
 	f->size = initsize;
 	f->beg = f->end = 0;
 	f->buf = (char*)malloc(initsize);
+	f->proc = NULL;
 	if(f->buf == NULL) return NULL;
 
 	return f;
@@ -149,11 +150,17 @@ int fifo_read(fifo *f, int fd)
 	} while(errno == EINTR);
 
 	log_dbg("Read %d bytes from %d", cnt, fd);
-	if(cnt > 0) {
-		fifo_unsafe_append(f, buf, cnt);
-	} else if(cnt < 0) {
-		if(errno == EAGAIN) {
-			cnt = 0;
+
+	if(f->proc) {
+		(*f->proc)(f, buf, cnt);
+	} else {
+		// copy the read data into the buffer
+		if(cnt > 0) {
+			fifo_unsafe_append(f, buf, cnt);
+		} else if(cnt < 0) {
+			if(errno == EAGAIN) {
+				cnt = 0;
+			}
 		}
 	}
 
