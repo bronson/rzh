@@ -10,13 +10,14 @@
 
 struct fifo;
 
-typedef void (*fifo_proc)(struct fifo *ff, char *buf, int size);
+typedef void (*fifo_proc)(struct fifo *ff, const char *buf, int size);
 
 typedef struct fifo {
 	char *buf;
 	int beg, end;
 	int size;
 	fifo_proc proc;
+	void *refcon;
 } fifo;
 
 

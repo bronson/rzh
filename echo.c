@@ -20,6 +20,7 @@
 #include "fifo.h"
 #include "io/io.h"
 #include "log.h"
+#include "zscan.h"
 
 
 struct async_fifo;
@@ -132,8 +133,7 @@ void fifo_atom_init(fifo_atom *atom, int fd)
 }
 
 
-void async_fifo_init(async_fifo *fifo, fifo_atom *ratom,
-		fifo_atom *watom, fifo_proc proc)
+void async_fifo_init(async_fifo *fifo, fifo_atom *ratom, fifo_atom *watom)
 {
 	fifo_init(&fifo->ff, BUFSIZ);
 	if(fifo->ff.buf == NULL) {
@@ -141,7 +141,6 @@ void async_fifo_init(async_fifo *fifo, fifo_atom *ratom,
 		bail(99);
 	}
 
-	fifo->ff.proc = proc;
 	fifo->ratom = ratom;
 	ratom->rfifo = fifo;
 	fifo->watom = watom;
@@ -153,14 +152,23 @@ void async_fifo_init(async_fifo *fifo, fifo_atom *ratom,
 }
 
 
+/* Analyze all data moving from the master to stdout.  If we notice a
+ * zmodem transfer start request, fork off a zmodem process to handle it.
+ */
+void f_mo_proc(fifo *f, const char *buf, int cnt)
+{
+	zscan(f->refcon, buf, buf+cnt, f);
+}
+
+
 void echo(bgio_state *bgio)
 {
 	fifo_atom a_stdin;
 	fifo_atom a_stdout;
 	fifo_atom a_master;
-
 	async_fifo f_im; // master out (fed from stdin)
 	async_fifo f_mo; // master in (fed to stdout)
+	zscanstate zscan;
 
 	log_dbg("STDIN=%d -> master=%d", STDIN_FILENO, bgio->master);
 	log_dbg("master=%d -> STDOUT=%d", bgio->master, STDOUT_FILENO);
@@ -170,9 +178,13 @@ void echo(bgio_state *bgio)
 	fifo_atom_init(&a_stdout, STDOUT_FILENO);
 	fifo_atom_init(&a_master, bgio->master);
 
-	// init the fifos
-	async_fifo_init(&f_im, &a_stdin, &a_master, NULL);
-	async_fifo_init(&f_mo, &a_master, &a_stdout, NULL);
+	async_fifo_init(&f_im, &a_stdin, &a_master);
+	async_fifo_init(&f_mo, &a_master, &a_stdout);
+
+	// add the zmodem start scanner
+	zscanstate_init(&zscan);
+	f_mo.ff.proc = f_mo_proc;
+	f_mo.ff.refcon = &zscan;
 
 	for(;;) {
 		io_wait(MAXINT);

@@ -4,7 +4,7 @@
 
 VERSION=0.5
 
-CSRC=bgio.c echo.c fifo.c io/io_select.c log.c rzh.c
+CSRC=bgio.c echo.c fifo.c io/io_select.c log.c rzh.c zscan.c
 # -lrt
 
 # ------------------------ #

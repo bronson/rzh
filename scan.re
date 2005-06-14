@@ -31,7 +31,7 @@ int zrqscan(scanstate *ss)
 	"rz\r"			{ return CMDSTR2; }
 	"rz\r\n"		{ return CMDSTR3; }
 
-	"\*+\030B00" 	{ return STARTIT; }
+	"*"+"\030B00"	{ return STARTIT; }
 	[\000-\377]+	{ return GARBAGE; }
 
 */
