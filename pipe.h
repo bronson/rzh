@@ -22,8 +22,10 @@ struct pipe {
 
 
 int set_nonblock(int fd);
+int pipe_prepend(struct pipe *pipe, const char *buf, int size);
+int pipe_write(struct pipe *pipe, const char *buf, int size);
 void pipe_atom_init(pipe_atom *atom, int fd);
-void pipe_init(struct pipe *pipe, pipe_atom *ratom, pipe_atom *watom);
+void pipe_init(struct pipe *pipe, pipe_atom *ratom, pipe_atom *watom, int size);
 
 
 // Must be implemented by the caller.  Getting pretty hackish.

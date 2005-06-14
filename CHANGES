@@ -14,11 +14,12 @@
  * First version.  Uses the code from lrzsz.
 
 
+todo: set all buffers to 1 byte and see what happens
+todo: add specifying the rz program to use
+
+
 todo: add progress disply
-todo: add specifying a subshell (-c).
-todo: add tests for perms as root (how?  fakeroot?), timeouts, bad filenames/paths, clobber
-todo: fix timeouts
-todo: Do I need to worry about DosSleep?  (not if we make extModem modular)
+todo: add specifying the subshell to use (-c).
 todo: what happens if the dldir is write-protected?
 todo: what happens if I try to clobber a file?
 todo: add a startup message, something like

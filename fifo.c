@@ -147,7 +147,7 @@ int fifo_read(struct fifo *f, int fd)
 	do {
 		errno = 0;
 		cnt = read(fd, buf, cnt);
-	} while(errno == EINTR);
+	} while(cnt == -1 && errno == EINTR);
 
 	log_dbg("Read %d bytes from %d", cnt, fd);
 
@@ -180,20 +180,20 @@ int fifo_write(struct fifo *f, int fd)
 		do {
 			errno = 0;
 			cnt = write(fd, f->buf+f->beg, f->end-f->beg);
-		} while(errno == EINTR);
+		} while(cnt == -1 && errno == EINTR);
 		if(cnt > 0) f->beg += cnt;
 	} else if(f->beg > f->end) {
 		do {
 			errno = 0;
 			cnt = write(fd, f->buf+f->beg, f->size-f->beg);
-		} while(errno == EINTR);
+		} while(cnt == -1 && errno == EINTR);
 		if(cnt > 0) {
 			f->beg = (f->beg + cnt) % f->size;
 			if(f->beg == 0) {
 				do {
 					errno = 0;
 					n = write(fd, f->buf, f->end);
-				} while(errno == EINTR);
+				} while(cnt == -1 && errno == EINTR);
 				if(n > 0) { f->beg = n; cnt += n; }
 			}
 		}
