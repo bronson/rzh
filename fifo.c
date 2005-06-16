@@ -4,6 +4,10 @@
  *
  * This file is released under the MIT license.  This is basically the
  * same as public domain, but absolves the author of liability.
+ * 
+ * TODO: This is only half-finished.  Now that it's pretty clear what
+ * the requirements are, the API should really be cleaned up.  Especially
+ * the stupid filter proc.
  */
 
 #include <unistd.h>
@@ -26,6 +30,12 @@ struct fifo *fifo_init(struct fifo *f, int initsize)
 	if(f->buf == NULL) return NULL;
 
 	return f;
+}
+
+
+void fifo_destroy(struct fifo *f)
+{
+	free(f->buf);
 }
 
 
@@ -190,7 +200,7 @@ int fifo_read(struct fifo *f, int fd)
 
 	if(f->proc) {
 		int old = fifo_avail(f);
-		(*f->proc)(f, buf, cnt);
+		(*f->proc)(f, buf, cnt, fd);
 		cnt = old - fifo_avail(f);
 	} else {
 		// copy the read data into the buffer

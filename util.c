@@ -36,39 +36,3 @@ void fdcheck()
 	}
 }
 
-
-/** This signal handler is made somewhat difficult because it must handle
- *  two types of sigchlds: one if we're stopping an rz, and one if the
- *  slave is quitting.
- */
-
-void sigchild(int tt)
-{
-	int pid;
-	int status;
-
-	log_dbg("Got sigchld");
-
-	// Reap as many children as we can.
-	for(;;) {
-		pid = waitpid(-1, &status, WNOHANG);
-		log_dbg(" ... pid=%d status=%d", pid, status);
-		if(pid == 0) {
-			log_wtf("waitpid returned 0?!");
-			break;
-		}
-		if(pid < 0) {
-			// no more children needed waiting
-			break;
-		}
-
-		if (pid == bgio_child_pid) {
-			stop_bgio_child();
-		} else if(pid == rz_child_pid) {
-			stop_rz_child();
-		} else {
-			log_wtf("Unknown pid %d!?", pid);
-		}
-	}
-}
-

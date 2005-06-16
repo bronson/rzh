@@ -19,10 +19,13 @@
 #include <getopt.h>
 #include <netdb.h>
 
-#include "bgio.h"
-#include "echo.h"
-#include "io/io.h"
 #include "log.h"
+#include "fifo.h"
+#include "io/io.h"
+#include "pipe.h"
+#include "task.h"
+#include "echo.h"
+#include "master.h"
 #include "util.h"
 
 
@@ -44,6 +47,14 @@ static jmp_buf g_bail;
 void bail(int val)
 {
 	longjmp(g_bail, val);
+}
+
+
+void rzh_fork_prepare()
+{
+	log_close();
+	io_exit();
+	fdcheck();
 }
 
 
@@ -169,44 +180,44 @@ static void process_args(int argc, char **argv)
 }
 
 
-void run(bgio_state *bgio)
-{
-	if(chdir_to_dldir() != 0) {
-		bail(25);
-	}
-
-	print_greeting();
-	echo(bgio);
-}
-
-
 int main(int argc, char **argv)
 {
 	int val;
-	bgio_state bgio;
+	master_pipe *mp;
 
+	// helps verify we're not leaking filehandles to the kid.
 	g_highest_fd = find_highest_fd();
-
-	process_args(argc, argv);
 
 	log_init("/tmp/rzh_log");
 	log_dbg("Highest numbered fd on entry: %d", g_highest_fd);
 
-	// after this call, everything must exit past bgio_stop
-	bgio_start(&bgio, NULL);
+	// We do not ensure that io_exit is called after forking but
+	// before execing.  For select this is OK.  If we move to a
+	// fd-based select scheme, though, it may be an issue.
+	io_init();
 
-	log_dbg("FD Master: %d", bgio.master);
-	log_dbg("FD Slave: %d", bgio.slave);
+	process_args(argc, argv);
 
 	val = setjmp(g_bail);
 	if(val == 0) {
-		// perform operations
-		io_init();
-		run(&bgio);
+		if(chdir_to_dldir() != 0) {
+			bail(25);
+		}
+		print_greeting();
+		mp = master_setup();
+		task_install(mp, echo_scanner_create_spec());
+		for(;;) {
+			// main loop, only ends through longjmp
+			io_wait(master_idle(mp));
+			master_check_sigchild(mp);
+			io_dispatch();
+		}
 	}
 
-	bgio_stop(&bgio);
 	io_exit();
-	exit(val);
+
+	// Setjmp converts a zero return value into a 1.  Therefore,
+	// we'll treat a 0 or a 1 return from setjmp as no error.
+	exit(val == 1 ? 0 : val);
 }
 

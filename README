@@ -1,16 +1,9 @@
 README for rzh (Receive Zmodem Here)
-Scott Bronson
 
 
 LICENSE
 
-- The code that I wrote is MIT licensed.  This is unrestricted, like public
-  domain, but removes liability from its author.
-- The pdpzm code is in the public domain.
-- The bgio.c file *might* sport an ancient BSD license.  I've rewritten most
-  of it so it probably doesn't apply anyore.  And, given the turmoil of the
-  90s (Lion Book, etc), it may be in the public domain now.  Hard to say.
-- The executable is either MIT or BSD licensed, depending on the previous item.
+	MIT
 
 
 INSTALLATION
@@ -22,11 +15,13 @@ INSTALLATION
 
 USAGE
 
-See the man page.  If you've installed the program, "man rzh" should
-work.  If not, run the following command in the source directory.
+	See the man page.  If you've installed the program, "man rzh" should
+	work.  If not, run the following command in the source directory.
 
-	$ make rzh.1 && nroff -man rzh.1 | less
+		$ make rzh.1 && nroff -man rzh.1 | less
 
 
-Scott Bronson <bronson@rinspin.com>
+AUTHOR
+
+	Scott Bronson <bronson@rinspin.com>
 

@@ -1,0 +1,1 @@
+void rztask_install();

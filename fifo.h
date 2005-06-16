@@ -10,7 +10,7 @@
 
 struct fifo;
 
-typedef void (*fifo_proc)(struct fifo *ff, const char *buf, int size);
+typedef void (*fifo_proc)(struct fifo *ff, const char *buf, int size, int fd);
 
 struct fifo {
 	char *buf;
@@ -35,6 +35,7 @@ struct fifo {
  * Returns NULL if fifo memory couldn't be allocated.
  */
 struct fifo* fifo_init(struct fifo *f, int initsize);
+void fifo_destroy(struct fifo *f);
 
 void fifo_clear(struct fifo *f);      /* empty the fifo of all data */
 int fifo_count(struct fifo *f);    /* number of bytes of data in the fifo */
@@ -45,9 +46,13 @@ int fifo_unsafe_getchar(struct fifo *f);
 
 /* stuff a memory block into the fifo */
 void fifo_unsafe_append(struct fifo *f, const char *buf, int cnt);
+#define fifo_unsafe_append_str(f, str) fifo_unsafe_append(f, str, strlen(str))
 void fifo_unsafe_prepend(struct fifo *f, const char *buf, int cnt);
+#define fifo_unsafe_prepend_str(f, str) fifo_unsafe_prepend(f, str, strlen(str))
+
 /* grab a memory block out of the fifo */
 void fifo_unsafe_unpend(struct fifo *f, char *buf, int cnt);
+#define fifo_unsafe_unpend_str(f, str) fifo_unsafe_unpend(f, str, strlen(str))
 
 /* fill the fifo by calling read() */
 int fifo_read(struct fifo *f, int fd);

@@ -2,59 +2,100 @@
  * 13 June 2005
  * Scott Bronson
  *
- * Uses pipes to shuttle data back and forth.
- * Has procs to modify the data streams as they pass.
+ * Conveys data between the bgio master and stdin/stdout.
  */
 
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <values.h>
+#include <assert.h>
 
+#include "log.h"
 #include "bgio.h"
 #include "fifo.h"
 #include "io/io.h"
-#include "log.h"
 #include "pipe.h"
-#include "child.h"
+#include "rztask.h"
+#include "task.h"
 #include "zscan.h"
+#include "util.h"
 
 
-
-/* Analyzes all data moving from the master to stdout.  If it notices a
- * zmodem transfer start request, it starts the transfer (zscanstate::proc)
- */
-
-static void master_output_proc(struct fifo *f, const char *buf, int size)
+static void echo_destructor(task_spec *spec, int free_mem)
 {
-	zscan(f->refcon, buf, buf+size, f);
+	// Don't want to close stdin/stdout/stderr
+	spec->infd = -1;
+	spec->outfd = -1;
+	spec->errfd = -1;
+
+	// call the default destructor
+	task_default_destructor(spec, free_mem);
 }
 
 
-void echo(bgio_state *bgio)
+task_spec *echo_create_spec()
 {
-	zscanstate zscan;
-
-	// init the atoms
-	pipe_atom_init(&a_stdin, STDIN_FILENO);
-	pipe_atom_init(&a_stdout, STDOUT_FILENO);
-	pipe_atom_init(&a_master, bgio->master);
-	g_slave_fd = bgio->slave;	// save so we can close when forking
-
-	// create the fifos that read from and write to the atoms.
-	pipe_init(&p_input_master, &a_stdin, &a_master, 8192);
-	pipe_init(&p_master_output, &a_master, &a_stdout, 8192);
-
-	// add the zmodem start procedure to the scanner
-	zscanstate_init(&zscan);
-	zscan.start_proc = start_proc;
-	zscan.start_refcon = NULL;	// not needed?
-
-	// insert the scanner into the master->stdout link
-	p_master_output.fifo.proc = master_output_proc;
-	p_master_output.fifo.refcon = &zscan;
-
-	for(;;) {
-		io_wait(MAXINT);
-		io_dispatch();
+	task_spec *spec = task_create_spec();
+	if(spec == NULL) {
+		perror("allocating echo task spec");
+		bail(45);
 	}
+
+	spec->infd = STDIN_FILENO;
+	spec->outfd = STDOUT_FILENO;
+	spec->errfd = -1;	// we'll ignore stderr
+	spec->child_pid = -1;
+	spec->destruct_proc = echo_destructor;
+
+	return spec;
+}
+
+
+/////////////////  Echo Scanner
+
+
+static void echo_scanner_start_proc(void *refcon)
+{
+	rztask_install();
+}
+
+static void echo_scanner_filter_proc(struct fifo *f, const char *buf, int size, int fd)
+{
+	if(size > 0) {
+		zscan(f->refcon, buf, buf+size, f, fd);
+	}
+}
+
+
+static void echo_scanner_destructor(task_spec *spec, int free_mem)
+{
+	if(free_mem) {
+		zscan_destroy(spec->maout_refcon);
+	}
+	
+	echo_destructor(spec, free_mem);
+}
+
+
+/** An echo scanner is just the echo task but it has a zmodem
+ *  start scanner attached.  When the start scanner notices a
+ *  transfer request, it fires up a receive task.
+ */
+
+task_spec *echo_scanner_create_spec()
+{
+	task_spec *spec = echo_create_spec();
+
+	// ensure we're not clobbering anything unexpected.
+	assert(!spec->maout_refcon);
+	assert(!spec->maout_proc);
+	assert(spec->destruct_proc == echo_destructor);
+
+	spec->maout_refcon = zscan_create(echo_scanner_start_proc);
+	spec->maout_proc = echo_scanner_filter_proc;
+	spec->destruct_proc = echo_scanner_destructor;
+
+	return spec;
 }
 

@@ -46,13 +46,7 @@ void bgio_stop(bgio_state *state)
 {
 	tcsetattr(0, TCSAFLUSH, &state->stdin_termios);
 	close(state->master);
-	fprintf(stderr, "\r\nrzh exited.\r\n");
-}
-
-
-void stop_bgio_child()
-{
-	bail(0);
+	close(state->slave);
 }
 
 
@@ -82,7 +76,6 @@ static void do_child(bgio_state *state, const char *cmd)
 	dup2(state->slave, 2);
 	close(state->slave);
 
-	// no need to io_exit since it hasn't been entered yet
 	log_close();
 	fdcheck();
 
@@ -128,7 +121,6 @@ void bgio_start(bgio_state *state, const char *cmd)
 				&state->stdin_termios, &win) < 0) {
 		perror("calling openpty");
 		kill(0, SIGTERM);
-		fprintf(stderr, "\r\nrzh exited.\r\n");
 		exit(fork_error1);
 	}
 
@@ -138,10 +130,6 @@ void bgio_start(bgio_state *state, const char *cmd)
 	cfmakeraw(&tt);
 	tt.c_lflag &= ~ECHO;
 	tcsetattr(0, TCSAFLUSH, &tt);
-
-	// This signal handler now comes from util.c because it must
-	// be shared among all the children we're forking.
-	signal(SIGCHLD, sigchild);
 
 	state->child_pid = fork();
 	if(state->child_pid < 0) {

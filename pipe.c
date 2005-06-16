@@ -18,9 +18,10 @@
 #include "io/io.h"
 #include "log.h"
 #include "pipe.h"
+#include "util.h"
 
 
-int set_nonblock(int fd)
+static int set_nonblock(int fd)
 {
 	int i;
 
@@ -145,6 +146,7 @@ int pipe_write(struct pipe *pipe, const char *buf, int size)
 }
 
 
+#if 0
 /** Like pipe_write() except that the data is inserted BEFORE the
  *  existing data rather than being appended after.
  *
@@ -197,11 +199,13 @@ int pipe_prepend(struct pipe *pipe, const char *buf, int size)
 
 	return total;
 }
+#endif
+
 
 /** This is the entrypoint for all pipe atom i/o notifications.
  */
 
-static void pipe_io_proc(io_atom *aa, int flags)
+void pipe_io_proc(io_atom *aa, int flags)
 {
 	pipe_atom *atom = (pipe_atom*)aa;
 
@@ -227,12 +231,19 @@ void pipe_atom_init(pipe_atom *atom, int fd)
 	io_atom_init(&atom->atom, fd, pipe_io_proc);
 	err = io_add(&atom->atom, 0);
 	if(err != 0) {
-		fprintf(stderr, "%s setting up pipe tom", strerror(-err));
+		fprintf(stderr, "%d (%s) setting up pipe atom for fd %d",
+				err, strerror(-err), fd);
 		bail(77);
 	}
 
 	atom->read_pipe = NULL;
 	atom->write_pipe = NULL;
+}
+
+
+void pipe_atom_destroy(pipe_atom *atom)
+{
+	io_del(&atom->atom);
 }
 
 
@@ -262,5 +273,11 @@ void pipe_init(struct pipe *pipe, pipe_atom *ratom, pipe_atom *watom, int size)
 	if(pipe->read_atom) {
 		io_enable(&pipe->read_atom->atom, IO_READ);
 	}
+}
+
+
+void pipe_destroy(struct pipe *pipe)
+{
+	fifo_destroy(&pipe->fifo);
 }
 

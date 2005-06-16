@@ -1,3 +1,5 @@
+TODO: add ability to attach to non-master atoms of higher ups
+
 13 Jun 2005:
  * pdpzm works but it is excruciatingly slow.  So, the third attempt:
    fork a new rz process to handle the zmodem transfer.
@@ -14,7 +16,18 @@
  * First version.  Uses the code from lrzsz.
 
 
-todo: set all buffers to 1 byte and see what happens
+todo: set all buffers to 1 byte and see if we garble anything
+todo: set all buffers to 7 bytes (1 larger than start string) and see if we garble anything
+
+todo: make expandable fifos so masses of memory will guard against deadlock.
+todo: there is a slight chance of deadlock when we're installing a new task.
+	The problem is draining the fifo for the new task.  Instead, we should
+	mark the fifo, and give it the new task to install.  Then when the fifo
+	has drained down to that point, we'll kick it over to the new task
+	automatically.  Right now, fifo_drain is really, really, evil.
+	NOTE: this should solve the nested task create / sigchild issue.
+		Easy way to solve for now: create new FIFOs.
+
 todo: add specifying the rz program to use
 todo: need to repair the bailage all over the place.  Consistent exit codes at least.
 

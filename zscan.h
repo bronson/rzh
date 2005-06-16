@@ -4,7 +4,8 @@
  */
 
 
-typedef void (*zstart_proc)(const char *buf, int size, void *refcon);
+typedef void (*zstart_proc)(void *refcon);
+
 
 typedef struct {
 	int parse_state;
@@ -16,6 +17,8 @@ typedef struct {
 } zscanstate;
 
 
-void zscanstate_init(zscanstate *conn);
-void zscan(zscanstate *conn, const char *cb, const char *ce, struct fifo *f);
+zscanstate* zscan_create(zstart_proc proc);
+void zscan_destroy(zscanstate *state);
+
+void zscan(zscanstate *conn, const char *cb, const char *ce, struct fifo *f, int fd);
 
