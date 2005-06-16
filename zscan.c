@@ -28,7 +28,7 @@ static void zscanstate_init(zscanstate *conn)
 }
 
 
-zscanstate* zscan_create(zstart_proc proc)
+zscanstate* zscan_create(zstart_proc proc, void *refcon)
 {
     zscanstate *zscan;
 
@@ -40,7 +40,7 @@ zscanstate* zscan_create(zstart_proc proc)
 
     zscanstate_init(zscan);
     zscan->start_proc = proc;
-    zscan->start_refcon = NULL; // not needed?
+    zscan->start_refcon = refcon;
 
     return zscan;
 }
@@ -198,7 +198,7 @@ void zscan(zscanstate *conn, const char *cp, const char *ce, struct fifo *f, int
 
 		// skip as much garbage as we can
 		cb = cp;
-		while(*cp != 'r' && *cp != '*' && cp < ce) {
+		while(cp < ce && *cp != 'r' && *cp != '*') {
 			cp++;
 		}
 

@@ -17,7 +17,7 @@ typedef struct {
 } zscanstate;
 
 
-zscanstate* zscan_create(zstart_proc proc);
+zscanstate* zscan_create(zstart_proc proc, void *refcon);
 void zscan_destroy(zscanstate *state);
 
 void zscan(zscanstate *conn, const char *cb, const char *ce, struct fifo *f, int fd);

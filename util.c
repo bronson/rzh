@@ -31,8 +31,9 @@ void fdcheck()
 {
 	int now = find_highest_fd();
 	if(now != g_highest_fd) {
-		fprintf(stderr, "On forking, highest fd should be %d but it's %d", g_highest_fd, now);
-		bail(67);
+		fprintf(stderr, "ERROR: On forking, highest fd should be %d but it's %d\n", g_highest_fd, now);
+		log_err("ERROR: On forking, highest fd should be %d but it's %d", g_highest_fd, now);
+		// Keep running because it's not a fatal error.
 	}
 }
 

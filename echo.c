@@ -16,8 +16,8 @@
 #include "fifo.h"
 #include "io/io.h"
 #include "pipe.h"
-#include "rztask.h"
 #include "task.h"
+#include "rztask.h"
 #include "zscan.h"
 #include "util.h"
 
@@ -57,7 +57,8 @@ task_spec *echo_create_spec()
 
 static void echo_scanner_start_proc(void *refcon)
 {
-	rztask_install();
+	// the refcon is the master_pipe
+	rztask_install(refcon);
 }
 
 static void echo_scanner_filter_proc(struct fifo *f, const char *buf, int size, int fd)
@@ -83,7 +84,7 @@ static void echo_scanner_destructor(task_spec *spec, int free_mem)
  *  transfer request, it fires up a receive task.
  */
 
-task_spec *echo_scanner_create_spec()
+task_spec *echo_scanner_create_spec(master_pipe *mp)
 {
 	task_spec *spec = echo_create_spec();
 
@@ -92,7 +93,7 @@ task_spec *echo_scanner_create_spec()
 	assert(!spec->maout_proc);
 	assert(spec->destruct_proc == echo_destructor);
 
-	spec->maout_refcon = zscan_create(echo_scanner_start_proc);
+	spec->maout_refcon = zscan_create(echo_scanner_start_proc, mp);
 	spec->maout_proc = echo_scanner_filter_proc;
 	spec->destruct_proc = echo_scanner_destructor;
 

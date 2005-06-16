@@ -17,6 +17,7 @@
 #include "io/io.h"
 #include "pipe.h"
 #include "task.h"
+#include "rztask.h"
 #include "util.h"
 
 
@@ -177,9 +178,9 @@ static void fork_rz_process(master_pipe *mp, int outfds[3], int *child_pid)
 	close(chstdout[1]);
 	close(chstderr[1]);
 
-	outfds[0] = chstdin[1];
-	outfds[1] = chstdout[0];
-	outfds[2] = chstderr[0];
+	outfds[0] = chstdout[0];	// we read from child's stdout
+	outfds[1] = chstdin[1];		// and write to the child's stdin
+	outfds[2] = chstderr[0];	// and read (sorta) from child's stderr
 	*child_pid = pid;
 }
 

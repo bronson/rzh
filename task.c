@@ -210,10 +210,12 @@ void task_default_sigchild(master_pipe *mp, task_spec *spec, int pid)
 
 task_spec* task_create_spec()
 {
-	task_spec *spec = calloc(1, sizeof(task_spec));
+	// calloc is giving me trouble; dunno why.
+	task_spec *spec = malloc(sizeof(task_spec));
 	if(spec == NULL) {
 		return NULL;
 	}
+	memset(spec, 0, sizeof(task_spec));
 
 	spec->infd = -1;
 	spec->outfd = -1;
@@ -252,10 +254,14 @@ void task_fork_prepare(master_pipe *mp)
 void task_dispatch_sigchild(master_pipe *mp, int pid)
 {
 	task_state *task = mp->task_head;
+	task_state *ntask;
 
 	while(task) {
+		// since the task may be disposed when we call its sigchild_proc,
+		// we need to copy everything we need first.
+		ntask = task->next;
 		(*task->spec->sigchild_proc)(mp, task->spec, pid);
-		task = task->next;
+		task = ntask;
 	}
 
 	(*mp->sigchild_proc)(mp, pid);
@@ -291,10 +297,11 @@ void master_pipe_default_sigchild(master_pipe *mp, int pid)
 
 master_pipe* master_pipe_init(int masterfd)
 {
-	master_pipe *mp = calloc(1, sizeof(master_pipe));
+	master_pipe *mp = malloc(sizeof(master_pipe));
 	if(mp == NULL) {
 		return NULL;
 	}
+	memset(mp, 0, sizeof(master_pipe));
 
 	pipe_atom_init(&mp->master_atom, masterfd);
 

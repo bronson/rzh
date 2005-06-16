@@ -41,7 +41,10 @@ static int set_nonblock(int fd)
 
 static void pipe_auto_read(struct pipe *pipe)
 {
-	assert(fifo_avail(&pipe->fifo) > 0);
+	if(!fifo_avail(&pipe->fifo)) {
+		assert(fifo_avail(&pipe->fifo) > 0);
+	}
+
 	fifo_read(&pipe->fifo, pipe->read_atom->atom.fd);
 
 	// perhaps the fifo proc sucked up all the data.

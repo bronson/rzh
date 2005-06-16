@@ -205,7 +205,7 @@ int main(int argc, char **argv)
 		}
 		print_greeting();
 		mp = master_setup();
-		task_install(mp, echo_scanner_create_spec());
+		task_install(mp, echo_scanner_create_spec(mp));
 		for(;;) {
 			// main loop, only ends through longjmp
 			io_wait(master_idle(mp));
@@ -213,11 +213,18 @@ int main(int argc, char **argv)
 			io_dispatch();
 		}
 	}
+	if(val == 1) {
+		// Setjmp converts a zero return value into a 1.  Therefore,
+		// we'll treat a 0 or a 1 return from setjmp as no error.
+		val = 0;
+	}
 
-	io_exit();
+	if(val == 0) {
+		// We're not forking, we're qutting normally.  The requirements are
+		// exactly the same: verify everything has been shut down properly.
+		rzh_fork_prepare();
+	}
 
-	// Setjmp converts a zero return value into a 1.  Therefore,
-	// we'll treat a 0 or a 1 return from setjmp as no error.
-	exit(val == 1 ? 0 : val);
+	exit(val);
 }
 

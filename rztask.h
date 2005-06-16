@@ -1,1 +1,1 @@
-void rztask_install();
+void rztask_install(master_pipe *mp);

@@ -144,17 +144,18 @@ const char* sanitize(const char *s, int n)
 	int i;
 	static char buf[64];
 
-	if(n > 64) {
-		n = 64;
+	if(n > sizeof(buf)-1) {
+		n = sizeof(buf)-1;
 	}
 
 	for(i=0; i<n; i++) {
-		if(s[i] < 32) {
+		if(s[i] < 32 || s[i] == 127) {
 			buf[i] = '#';
 		} else {
 			buf[i] = s[i];
 		}
 	}
+	buf[i] = '\0';
 
 	return buf;
 }
@@ -164,14 +165,19 @@ void logio(const char *name, int fd, const char *buf, int cnt, int act)
 {
 	int n = act;
 	char *cont = "";
-	if(n > 24) {
-		n = 24;
-		cont = "...";
+
+	if(n >= 0) {
+		if(n > 24) {
+			n = 24;
+			cont = "...";
+		}
+
+		log_dbg("%s %d bytes from %d: (%d)\t\t<<%s>>%s",
+				name, act, fd, cnt, sanitize(buf, n), cont);
+	} else {
+		log_dbg("%s error from %d: %d (%d)",
+				name, fd, errno, strerror(errno));
 	}
-
-	log_dbg("%s %d bytes from %d: (%d)\t\t<<%.*s>>%s", name, act, fd, cnt, n,
-			sanitize(buf, n), cont);
-
 }
 
 
