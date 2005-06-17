@@ -69,6 +69,7 @@ typedef struct io_atom {
 
 void io_init();     ///< Call this routine once when your code starts.  It prepares the io library for use.
 void io_exit();     ///< Call this routine once when your program terminates.  It just releases any resources allocated by io_init.
+int io_exit_check();	///< Returns how many fds were leaked.  Also prints them to stderr.
 
 
 /** Adds the given io_atom to the current watch list.

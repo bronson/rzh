@@ -63,20 +63,23 @@ void master_pipe_destructor(master_pipe *mp, int free_mem)
 {
 	bgio_state *bgio = mp->refcon;
 
-	if(!free_mem) {
-		// We're only forking.  Just close the bgio master fds.
-		close(bgio->master);
-		close(bgio->slave);
-	}
-
 	master_pipe_default_destructor(mp, free_mem);
 
-	bgio_stop(bgio);
-	free(bgio);
+	if(free_mem) {
+		bgio_stop(bgio);
+		free(bgio);
 
-	// When we're done destroying the pipe, bail with no error.
-	fprintf(stderr, "\nrzh exited.\n");
-	bail(0);
+		// When we're done destroying the pipe, bail with no error.
+		fprintf(stderr, "\nrzh exited.\n");
+
+		// We only want to bail if we're exiting normally.  If we're
+		// just cleaning up before forking, no need to bail!
+		bail(0);
+	}
+
+	// we're only forking so only close the files.
+	close(bgio->master);
+	close(bgio->slave);
 }
 
 

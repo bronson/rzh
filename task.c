@@ -80,29 +80,31 @@ static void task_destroy(task_state *task)
 
 /** Inserts the topmost task on the pipe into the master pipe.
  *  Used to insert a new task or to restore an old one.
+ *  NOTE: do NOT use the old state to manipulate data structures.
+ *  Write to them only, do not read.
  */
 
 static void task_pipe_setup(master_pipe *mp)
 {
 	task_state *task = mp->task_head;
 
-	if(mp->input_master.read_atom) {
-		// first install the verso procs if prev process has a reader
-		if(task->spec->verso_input_proc) {
-			// user supplied a verso input proc, so install it
-			mp->input_master.read_atom->atom.proc = task->spec->verso_input_proc;
-			io_enable(&mp->input_master.read_atom->atom, IO_READ);
-		} else {
-			// no verso input proc so disable this atom
-			io_disable(&mp->input_master.read_atom->atom, IO_READ);
-		}
-	}
-
-	// restore our own read atom proc since it may have been verso'd.
+	// Handle verso first.  We need to restore the read proc on this task
+	// to its original state (eradicate any verso from a subtask).  This
+	// means that read atoms in normal usage MUST be pipe endpoints.
+	// Seems an OK restriction to me.
 	if(task->read_atom.atom.fd >= 0) {
 		task->read_atom.atom.proc = pipe_io_proc;
 	}
 
+	// Now, if the task wants verso read, install it.
+	if(task->spec->verso_input_proc && task->next) {
+		task_state *verso = task->next;
+		if(verso->read_atom.atom.fd >= 0) {
+			verso->read_atom.atom.proc = task->spec->verso_input_proc;
+			// ensure that reading is enabled
+			io_enable(&verso->read_atom.atom, IO_READ);
+		}
+	}
 
 	// Splice the atoms into the pipes
 	mp->input_master.read_atom = &task->read_atom;

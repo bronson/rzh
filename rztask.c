@@ -21,10 +21,6 @@
 #include "util.h"
 
 
-// We need a pipe to send progress information to stdout
-static struct pipe p_progress_stdout;
-
-
 int idle_proc(task_spec *spec)
 {
 	const char *str = "Hello\r\n";
@@ -41,7 +37,6 @@ static void parse_typing(const char *buf, int len)
 	snprintf(s, sizeof(s), "KEY: len=%d <<%.*s>>\r\n", len, len, buf);
 
 	log_dbg("TYPING (%d chars): %.*s", len, len, buf);
-	pipe_write(&p_progress_stdout, s, strlen(s));
 }
 
 
@@ -167,8 +162,11 @@ static void fork_rz_process(master_pipe *mp, int outfds[3], int *child_pid)
 
 		task_fork_prepare(mp);
 		rzh_fork_prepare();
+		io_exit_check();
 
-		execl("/usr/bin/rz", "rz", 0);
+//		execl("/usr/bin/rz", "rz", "--disable-timeouts", 0);
+//		execl("/usr/bin/rz", "rz", 0);
+		execl("/bin/bash", "bash", 0);
 		fprintf(stderr, "Could not exec /usr/bin/rz: %s\n",
 				strerror(errno));
 		exit(89);

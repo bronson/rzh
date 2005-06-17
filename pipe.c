@@ -279,6 +279,8 @@ void pipe_init(struct pipe *pipe, pipe_atom *ratom, pipe_atom *watom, int size)
 }
 
 
+/** The atoms are destroyed with the tasks, not the pipe. */
+
 void pipe_destroy(struct pipe *pipe)
 {
 	fifo_destroy(&pipe->fifo);

@@ -4,11 +4,9 @@
 
 VERSION=0.5
 
-CSRC=bgio.c echo.c fifo.c io/io_select.c log.c \
-	master.c pipe.c rzh.c rztask.c task.c util.c zscan.c
-# -lrt
-
-# ------------------------ #
+CSRC=bgio.c echo.c fifo.c log.c master.c pipe.c rztask.c task.c util.c zscan.c
+CHDR:=$(CSRC:.c=.h)
+CSRC+=rzh.c io/io_select.c 
 
 COPTS+=-DVERSION=$(VERSION)
 COPTS+=-Wall -Werror
@@ -16,7 +14,7 @@ COPTS+=-g
 
 all: rzh doc
 
-rzh: $(CSRC)
+rzh: $(CSRC) $(CHDR)
 	$(CC) $(COPTS) $(CSRC) -lutil -o rzh
 
 doc: rzh.1

@@ -9,18 +9,11 @@
  */
 
 
-/** The idle proc of the topmost task gets called once each time through
- *  the event loop.  It returns the number of milliseconds that should
- *  elapse before being called again.  Note that it is called EVERY time
- *  through the event loop so it will probably get called much more
- *  often than it requests.
- */
-
-
 struct master_pipe;
 
 
-/** The information required to set up a task.
+/** The information required to set up a task.  This is what the task
+ *  sets up to hand to task_install.
  */
 
 typedef struct task_spec {
@@ -36,7 +29,16 @@ typedef struct task_spec {
 
 	io_proc err_proc;		///< This routine is called every time something arrives on stderr.
 	io_proc verso_input_proc;	///< The verso_input is the input that was disconnected so that the new input could be attached to the master.  This proc is called whever data is available on the verso input.
+	// Turns out we don't need a verso output proc...?
+	// Right now, verso output is a complete hack.  It works though.
+	// The entire pipe_atom is available for use by the verso read proc, since it gets entirely reset by task_pipe_setup.  Cool!
 
+/** The idle proc of the topmost task gets called once each time through
+ *  the event loop.  It returns the number of milliseconds that should
+ *  elapse before being called again.  Note that it is called EVERY time
+ *  through the event loop so it will probably get called much more
+ *  often than it requests.
+ */
 	int (*idle_proc)(struct task_spec*);			///< The idle proc to call when this task is topmost.
 	void (*destruct_proc)(struct task_spec*, int forking);	///< Called when the task gets removed so the task spec is no longer needed (unless you want to reuse it of course).  Expected to free all memory, etc.  If forking is true, then we're running in a child that is about to exec, so close all filehandles but don't worry about memory.
 	void (*sigchild_proc)(struct master_pipe*, struct task_spec*, int pid);	///< The SIGCHLD handler for this task.  See task_sigchild() for more.  This is set to task_default_sigchild by default.  If your task doesn't involve forked children, just leave task_spec::child_pid set to -1.

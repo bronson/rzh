@@ -223,6 +223,7 @@ int main(int argc, char **argv)
 		// We're not forking, we're qutting normally.  The requirements are
 		// exactly the same: verify everything has been shut down properly.
 		rzh_fork_prepare();
+		io_exit_check();
 	}
 
 	exit(val);

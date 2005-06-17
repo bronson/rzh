@@ -43,6 +43,23 @@ void io_exit()
 }
 
 
+int io_exit_check()
+{
+	int cnt = 0;
+	int i;
+
+	// Check that we haven't leaked any atoms.
+	for(i=0; i<FD_SETSIZE; i++) {
+		if(connections[i]) {
+			fprintf(stderr, "Leaked atom fd=%d proc=%08lX!\n", i, (long)connections[i]);
+			cnt += 1;
+		}
+	}
+
+	return cnt;
+}
+
+
 static void install(int fd, int flags)
 {
 	if(flags & IO_READ) {
