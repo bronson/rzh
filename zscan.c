@@ -272,12 +272,16 @@ void zscan(zscanstate *conn, const char *cp, const char *ce, struct fifo *f, int
 			}
 
 			fifo_append_rz(f, conn->gotrz);
+			conn->gotrz = 0;
 			fifo_append_stars(f, conn->starcnt);
 			if(conn->parse_state >= 1) fifo_unsafe_addchar(f, '\030');
 			if(conn->parse_state >= 2) fifo_unsafe_addchar(f, 'B');
 			if(conn->parse_state >= 3) fifo_unsafe_addchar(f, '0');
 		}
 
+		if(conn->gotrz) {
+			fifo_append_rz(f, conn->gotrz);
+		}
 		zscanstate_init(conn);
 	}
 
