@@ -87,33 +87,52 @@ static void print_greeting()
 
 static void preflight()
 {
+	static const char *envname = "RZHDIR";
+
 	char buf[PATH_MAX];
+	char var[PATH_MAX];
+	char *s;
 
-	// We'll skip preflighting too if the user asks for quiet.
-	if(quiet) {
-		return;
+	if(!quiet) {
+		s = getenv(envname);
+		if(s) {
+			fprintf(stderr, "Another rzh process is downloading to %s\n", s);
+		}
 	}
-
-	if(!download_dir) {
-		print_greeting();
-		return;
-	}
-
-	// Easy way of printing an absolute path: cd to it and call getcwd.
 
 	if(!getcwd(buf, sizeof(buf))) {
-		printf("rzh is running but couldn't figure out the CWD!\r\n");
+		fprintf(stderr, "couldn't figure out the CWD!\n");
 		bail(24);
 	}
 
-	if(chdir_to_dldir() != 0) {
-		bail(25);
+	if(download_dir) {
+		if(chdir(download_dir) != 0) {
+			fprintf(stderr, "couldn't cd to %s: %s\n",
+					download_dir, strerror(errno));
+			bail(25);
+		}
 	}
-	print_greeting();
 
-	if(chdir(buf) != 0) {
-		printf("rzh is running but couldn't return to the CWD!\r\n");
-		bail(24);
+	if(!getcwd(var, sizeof(var))) {
+		fprintf(stderr, "couldn't figure out the dldir!\n");
+		bail(26);
+	}
+
+	if(setenv(envname, var, 1) != -0) {
+		fprintf(stderr, "setenv %s to %s failed!\n", envname, var);
+		bail(39);
+	}
+
+	if(!quiet) {
+		print_greeting();
+	}
+
+	if(download_dir) {
+		if(chdir(buf) != 0) {
+			fprintf(stderr, "couldn't return to %s: %s\n",
+					buf, strerror(errno));
+			bail(27);
+		}
 	}
 }
 

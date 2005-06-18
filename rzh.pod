@@ -4,24 +4,24 @@ B<rzh> - Receive ZMODEM Here
 
 =head1 SYNOPSIS
 
-To transfer the /etc/hosts file
-on tt.asplode.com (which is only reachable via www.asplode.com),
-to the current directory:
+B<rzh> [B<-q>|B<-v>] [I<directory>]
+
+To transfer the /etc/hosts file on tt.asplode.com to the current directory.
 
   $ rzh
   $ ssh www.asplode.com
-  $ ssh tt.asplode.com
   $ sz /etc/hosts
+  173 bytes sent in 0.3 seconds.
+  $
 
 =head1 DESCRIPTION
 
-rzh sits in the background listening for a zmodem transfer request.
-When it sees one, it springs to action and sucks down the file.
-It can also be useful for copying files between directories on the
-local machine.  Simply run rzh in the destination directory, then cd
-to the source directory and use sz to copy the files.
+rzh forks itself ot the background and handles zmodem transfer requests.
 
-When you're done transferring files, you can use ^D or "exit" to stop rzh.
+rzh can be useful for copying files between directories on the
+local machine.  Run rzh in the destination directory, then cd
+to the source directory and send each file using sz.  This is
+easier than specifying the full path every time.
 
 =head1 OPTIONS
 
@@ -43,26 +43,6 @@ Output a quick usage summary.
 Suppresses the printing of status messages.
 Error messages are still printed to stderr.
 
-=item B<-r> B<--receive>
-
-Tells rzh to wait for a zmodem transfer to be initiated, handle
-the transfer, and
-exit when it has finished.  If a single argument is passed on
-the command line, it is interpreted as the directory to contain
-the transferred files.  If no argument is supplied, files are
-saved to the current directory.
-
-=item B<-s> B<--send>
-
-Immediately sends the files named on the command line and exits.
-NOTE: this appears somewhat buggy.  Use sz instead.
-
-=item B<-t> B<--timeout>
-
-Specifies the timeout for zmodem transfers in seconds.
-Accepts fractions (i.e. a timeout of 1/2 second would be
-"-t 0.5").
-
 =item B<-v> B<--verbose>
 
 Increases verbosity.
@@ -73,35 +53,30 @@ Prints the version and exits.
 
 =back
 
-=head1 NOTES
+=head1 ENVIRONMENT
 
-If rzh is running as root, it will not mark downloaded files as executable
-or special.  0666 is the most permissive permission allowed.  If running
-as a regular user, of course, it preserves as much of the permissions
-as it can.
+=over 4
 
-To ensure that we don't mess up other character encodings,
-we do not attempt to sanitize the filename.  This is a feature.
-I'll fix this if somebody can show that's it's a security hazard.
+=item SHELL
 
-We don't support directories in the filename.  If the sending program
-includes directories (i.e. "a/b/file.ext"), we'll fail to create the file.
+Specifies the shell that rzh should use.
 
-rzh launches whatever shell is specified in the SHELL environment variable.
-If it's not specified, it tries to launch _PATH_BSHELL as specified at build
-time on the local machine (this is typically "/bin/sh").
+=item RZHDIR
+
+If you're currently running rzh, this specifies the full path
+to the download directory.
+
+=back
 
 =head1 SEE ALSO
 
 L<rz(1)>, L<sz(1)>
 
-=head1 AUTHORS
+=head1 AUTHOR
 
 =over 4
 
 =item Scott Bronson <S<bronson@rinspin.com>>
-
-=item zmodem code by Paul Edwards <S<kerravon@w3.to>>
 
 =back
 

@@ -1,5 +1,9 @@
 TODO: turn off disable timeouts in rz
-TODO: Do I actually need to handle SIGCHLD?  I suppose so...?
+TODO: should not print xfer info if quiet is turned on
+TODO: preflight: ensure the rzh command is readable and executable by us.
+
+17 Jun 2005:
+ * It works well!  It finally works well.
 
 13 Jun 2005:
  * pdpzm works but it is excruciatingly slow.  So, the third attempt:
@@ -14,7 +18,7 @@ TODO: Do I actually need to handle SIGCHLD?  I suppose so...?
    lrzsz code is amazingly brittle.
 
 15 Jan 2004:
- * First version.  Uses the code from lrzsz.
+ * First version.  Tried to add this feature to lrzsz's rz command.
 
 
 todo: set all buffers to 1 byte and see if we garble anything

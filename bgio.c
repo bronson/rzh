@@ -80,7 +80,7 @@ static void do_child(bgio_state *state, const char *cmd)
 	fdcheck();
 
 	if(cmd) {
-		execl(shell, name, "-c", cmd, 0);
+		execl(shell, name, "-c", cmd, NULL);
 		fprintf(stderr, "Could not exec %s -c %s: %s\n",
 				shell, cmd, strerror(errno));
 	} else {
