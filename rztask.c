@@ -30,18 +30,34 @@ int idle_proc(task_spec *spec)
 }
 
 
-static void parse_typing(const char *buf, int len)
+static void parse_typing(const char *buf, int len, void *refcon)
 {
-	char s[256];
+	int i;
+	task_spec *spec = (task_spec*)refcon;
 
-	snprintf(s, sizeof(s), "KEY: len=%d <<%.*s>>\r\n", len, len, buf);
+	for(i=0; i<len; i++) {
+		switch(buf[i]) {
+			case 3:		// ^C
+			case 24: 	// ^X
+			case 27:	// ESC
+				fprintf(stderr, "CANCEL!\r\n");
+				master_pipe_terminate(spec->master);
+				break;
+
+			default:
+				fprintf(stderr, "KEY: len=%d <<%.*s>>\r\n", len, len, buf);
+				;
+		}
+	}
 
 	log_dbg("TYPING (%d chars): %.*s", len, len, buf);
 }
 
 
-static void typing_io_proc(io_atom *atom, int flags)
+static void typing_io_proc(io_atom *inatom, int flags)
 {
+	pipe_atom *atom = (pipe_atom*)inatom;
+
 	char buf[128];
 	int cnt;
 
@@ -54,11 +70,11 @@ static void typing_io_proc(io_atom *atom, int flags)
 
 	do {
 		errno = 0;
-		cnt = read(atom->fd, buf, sizeof(buf));
+		cnt = read(atom->atom.fd, buf, sizeof(buf));
 	} while(cnt == -1 && errno == EINTR);
 
 	if(cnt > 0) {
-		parse_typing(buf, cnt);
+		parse_typing(buf, cnt, (void*)atom->read_pipe);
 	} else if(cnt == 0) {
 		log_warn("TYPING 0 read???");
 	} else {
@@ -67,8 +83,9 @@ static void typing_io_proc(io_atom *atom, int flags)
 }
 
 
-static void cherr_proc(io_atom *atom, int flags)
+static void cherr_proc(io_atom *inatom, int flags)
 {
+	heavy_atom *atom = (heavy_atom*)inatom;
 	char buf[512];
 	int cnt;
 
@@ -81,16 +98,19 @@ static void cherr_proc(io_atom *atom, int flags)
 
 	do {
 		errno = 0;
-		cnt = read(atom->fd, buf, sizeof(buf));
+		cnt = read(atom->atom.fd, buf, sizeof(buf));
 	} while(cnt == -1 && errno == EINTR);
 
 	if(cnt > 0) {
-		log_warn("CHILD STDERR fd=%d: <<<%.*s>>>", atom->fd, cnt, buf);
+		log_warn("CHILD STDERR fd=%d: <<<%.*s>>>", atom->atom.fd, cnt, buf);
 	} else if(cnt == 0) {
-		log_warn("CHILD STDERR fd=%d: 0 read???", atom->fd);
+		// eof on stderr.
+		io_del(&atom->atom);
+		log_dbg("Closed child stderr %d.", atom->atom.fd);
+		atom->atom.fd = -1;
 	} else {
 		log_warn("CHILD STDERR fd=%d:read error: %d (%s)",
-				atom->fd, errno, strerror(errno));
+				atom->atom.fd, errno, strerror(errno));
 	}
 }
 
@@ -107,6 +127,7 @@ static task_spec* create_rz_spec(int fd[3], int child_pid)
 	spec->idle_proc = idle_proc;
 	spec->err_proc = cherr_proc;
 	spec->verso_input_proc = typing_io_proc;
+	spec->verso_input_refcon = spec;
 
 	return spec;
 }
@@ -164,9 +185,8 @@ static void fork_rz_process(master_pipe *mp, int outfds[3], int *child_pid)
 		rzh_fork_prepare();
 		io_exit_check();
 
-//		execl("/usr/bin/rz", "rz", "--disable-timeouts", 0);
+		execl("/usr/bin/rz", "rz", "--disable-timeouts", 0);
 //		execl("/usr/bin/rz", "rz", 0);
-		execl("/bin/bash", "bash", 0);
 		fprintf(stderr, "Could not exec /usr/bin/rz: %s\n",
 				strerror(errno));
 		exit(89);

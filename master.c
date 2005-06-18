@@ -26,13 +26,19 @@
 static int sigchild_received;
 
 
-void sigchild(int tt)
+static void sigchild(int tt)
 {
 	// Don't want to handle the child here as it could lead to races.
 	// The signal causes select to return early so we'll handle it
 	// before doing any I/O.
 	log_dbg("Got a sigchild!  sigchild_received=%d->%d", sigchild_received, sigchild_received+1);
 	sigchild_received++;
+}
+
+
+static void sigpipe(int tt)
+{
+	log_dbg("Got a sigpipe!");
 }
 
 
@@ -59,7 +65,7 @@ void master_check_sigchild(master_pipe *mp)
 }
 
 
-void master_pipe_destructor(master_pipe *mp, int free_mem)
+static void master_pipe_destructor(master_pipe *mp, int free_mem)
 {
 	bgio_state *bgio = mp->refcon;
 
@@ -83,7 +89,14 @@ void master_pipe_destructor(master_pipe *mp, int free_mem)
 }
 
 
-void master_pipe_sigchild(master_pipe *mp, int pid)
+static void master_terminate(master_pipe *mp)
+{
+	bgio_state *bgio = mp->refcon;
+	kill(bgio->child_pid, SIGTERM);
+}
+
+
+static void master_pipe_sigchild(master_pipe *mp, int pid)
 {
 	bgio_state *bgio = mp->refcon;
 
@@ -137,9 +150,11 @@ master_pipe* master_setup()
 	}
 	mp->destruct_proc = master_pipe_destructor;
 	mp->sigchild_proc = master_pipe_sigchild;
+	mp->terminate_proc = master_terminate;
 	mp->refcon = bgio;
 
 	signal(SIGCHLD, sigchild);
+	signal(SIGPIPE, sigpipe);
 
 	return mp;
 }

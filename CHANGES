@@ -1,4 +1,5 @@
 TODO: turn off disable timeouts in rz
+TODO: Do I actually need to handle SIGCHLD?  I suppose so...?
 
 13 Jun 2005:
  * pdpzm works but it is excruciatingly slow.  So, the third attempt:

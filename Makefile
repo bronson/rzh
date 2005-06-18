@@ -31,4 +31,9 @@ dist-clean: clean
 test: rzh
 	@(cd test; $(MAKE) test)
 
+install: all
+	cp rzh /usr/local/bin
+	mkdir -p /usr/local/man/man1
+	cp rzh.1 /usr/local/man/man1
+
 .PHONY: test

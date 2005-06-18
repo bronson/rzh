@@ -208,9 +208,15 @@ int main(int argc, char **argv)
 		task_install(mp, echo_scanner_create_spec(mp));
 		for(;;) {
 			// main loop, only ends through longjmp
+			log_dbg("waiting");
 			io_wait(master_idle(mp));
-			master_check_sigchild(mp);
+			log_dbg("dispatching");
 			io_dispatch();
+			// Turns out we need to dispatch before handling sigchlds.
+			// Otherwise, since the sigchld probably causes fds to open
+			// and close, we end up dispatching on stale events.  Bad.
+			log_dbg("checkchild");
+			master_check_sigchild(mp);
 		}
 	}
 	if(val == 1) {

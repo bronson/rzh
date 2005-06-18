@@ -7,7 +7,7 @@ struct pipe;
 
 typedef struct {
 	io_atom atom;				// represents a file or socket
-	struct pipe *read_pipe;		// the pipe that this atom reads its data into
+	struct pipe *read_pipe;		// the pipe that this atom reads its data into	(this field has also been usurped to be the read verso refcon)
 	struct pipe *write_pipe;	// the pipe that this atom gets its data from
 } pipe_atom;
 

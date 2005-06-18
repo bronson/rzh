@@ -3,11 +3,15 @@
  * Scott Bronson
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <signal.h>
 
+#include "log.h"
 #include "fifo.h"
 #include "io/io.h"
 #include "pipe.h"
@@ -43,15 +47,16 @@ static task_state* task_prepare(task_spec *spec)
 	}
 
 	if(spec->errfd >= 0 && spec->err_proc) {
-		io_atom_init(&task->err_atom, spec->errfd, spec->err_proc);
-		err = io_add(&task->err_atom, IO_READ);
+		task->err_atom.refcon = spec->err_refcon;
+		io_atom_init(&task->err_atom.atom, spec->errfd, spec->err_proc);
+		err = io_add(&task->err_atom.atom, IO_READ);
 		if(err != 0) {
 			fprintf(stderr, "%d (%s) setting up err atom for fd %d",
 					err, strerror(-err), spec->errfd);
 			bail(72);
 		}
 	} else {
-		task->err_atom.fd = -1;
+		task->err_atom.atom.fd = -1;
 	}
 
 	task->next = NULL;
@@ -61,7 +66,7 @@ static task_state* task_prepare(task_spec *spec)
 }
 
 
-static void task_destroy(task_state *task)
+static void task_destroy(task_state *task, int free_mem)
 {
 	if(task->read_atom.atom.fd >= 0) {
 		pipe_atom_destroy(&task->read_atom);
@@ -69,12 +74,15 @@ static void task_destroy(task_state *task)
 	if(task->write_atom.atom.fd >= 0) {
 		pipe_atom_destroy(&task->write_atom);
 	}
-	if(task->err_atom.fd >= 0) {
-		io_del(&task->err_atom);
+	if(task->err_atom.atom.fd >= 0) {
+		io_del(&task->err_atom.atom);
 	}
 
-	(*task->spec->destruct_proc)(task->spec, 1);
-	free(task);
+	(*task->spec->destruct_proc)(task->spec, free_mem);
+
+	if(free_mem) {
+		free(task);
+	}
 }
 
 
@@ -101,6 +109,7 @@ static void task_pipe_setup(master_pipe *mp)
 		task_state *verso = task->next;
 		if(verso->read_atom.atom.fd >= 0) {
 			verso->read_atom.atom.proc = task->spec->verso_input_proc;
+			verso->read_atom.read_pipe = task->spec->verso_input_refcon;
 			// ensure that reading is enabled
 			io_enable(&verso->read_atom.atom, IO_READ);
 		}
@@ -154,7 +163,7 @@ void task_remove(master_pipe *mp)
 	mp->task_head = task->next;
 	task->spec->master = NULL;
 
-	task_destroy(task);
+	task_destroy(task, 1);
 
 	if(mp->task_head) {
 		// restore the prevous task in the pipe
@@ -185,22 +194,81 @@ void task_default_destructor(task_spec *spec, int free_mem)
 }
 
 
+/** Given a task_spec, returns the associated task_state.
+ *  What a stupid function to have!  Things should be reorg'd so there's
+ *  no need to ever go from a spec back to the state.
+ */
+
+static task_state* master_pipe_find_task(master_pipe *mp, task_spec *spec)
+{
+	task_state *task = mp->task_head;
+
+	while(task) {
+		if(task->spec == spec) {
+			return task;
+		}
+	}
+
+	return NULL;
+}
+
+
 void task_default_sigchild(master_pipe *mp, task_spec *spec, int pid)
 {
-	if(pid == spec->child_pid) {
-		// it's this task that got the signal.
-		if(spec == mp->task_head->spec) {
-			// And it's topmost so just remove it
-			task_remove(mp);
-		} else {
-			// We have a problem.  A task deep in our chain bailed.
-			// Since, for now, this can only mean that the echo shell
-			// just exited, which means that the master pipe is gone
-			// anyway.  Nothing we can do except bail.  This must change
-			// if deeper pipes are being set up.
-			fprintf(stderr, "Parent process exited unexpectedly!\n");
-			bail(43);
+	task_state *task;
+
+	if(pid != spec->child_pid) {
+		// nothing to do if it's not our child.
+		return;
+	}
+
+	log_dbg("handling SIGCHLD for pid %d", pid);
+
+	task = master_pipe_find_task(mp, spec);
+	assert(task);
+	assert(task->spec == spec);
+
+	while(task && task->read_atom.atom.fd != -1) {
+		// We got a sigchld for this task, but the reader hasn't
+		// been closed yet.  This means there's probably a touch
+		// more data in the read pipe.  Read it to exhaustion.
+		assert(!"This should never happen?");
+		pipe_io_proc(&task->read_atom.atom, IO_READ);
+	}
+
+	if(spec == mp->task_head->spec) {
+		// And it's topmost so just remove it
+		if(!fifo_empty(&mp->input_master.fifo)) {
+			log_info("input->master fifo still had %d bytes!", fifo_count(&mp->input_master.fifo));
 		}
+		if(!fifo_empty(&mp->master_output.fifo)) {
+			log_info("master->output fifo still had %d bytes!", fifo_count(&mp->master_output.fifo));
+		}
+
+		task_remove(mp);
+	} else {
+		// We have a problem.  A task deep in our chain bailed.
+		// Since, for now, this can only mean that the echo shell
+		// just exited, which means that the master pipe is gone
+		// anyway.  Nothing we can do except bail.  This must change
+		// if deeper pipes are being set up.
+		fprintf(stderr, "Parent process exited unexpectedly!\n");
+		bail(43);
+	}
+}
+
+
+/** This is expected to terminate your task.  It needn't clean anything
+ *  up.  That will be taken care of when your task is removed.
+ *
+ *  Default behavior is just to kill the child.  We'll get a SIGCHLD
+ *  which will tell us to clean everything up.
+ */
+
+void task_default_terminate(master_pipe *mp, task_spec *spec)
+{
+	if(spec->child_pid > 0) {
+		kill(spec->child_pid, SIGTERM);
 	}
 }
 
@@ -226,6 +294,7 @@ task_spec* task_create_spec()
 
 	spec->destruct_proc = task_default_destructor;
 	spec->sigchild_proc = task_default_sigchild;
+	spec->terminate_proc = task_default_terminate;
 
 	return spec;
 }
@@ -241,7 +310,7 @@ void task_fork_prepare(master_pipe *mp)
 	task_state *task = mp->task_head;
 
 	while(task) {
-		(*task->spec->destruct_proc)(task->spec, 0);
+		task_destroy(task, 0);
 		task = task->next;
 	}
 
@@ -279,8 +348,9 @@ void task_dispatch_sigchild(master_pipe *mp, int pid)
 
 void master_pipe_default_destructor(master_pipe *mp, int free_mem)
 {
+	pipe_atom_destroy(&mp->master_atom);
+
 	if(free_mem) {
-		pipe_atom_destroy(&mp->master_atom);
 		pipe_destroy(&mp->input_master);
 		pipe_destroy(&mp->master_output);
 		free(mp);
@@ -289,6 +359,12 @@ void master_pipe_default_destructor(master_pipe *mp, int free_mem)
 
 
 void master_pipe_default_sigchild(master_pipe *mp, int pid)
+{
+	// do nothing
+}
+
+
+void master_pipe_default_terminate(master_pipe *mp)
 {
 	// do nothing
 }
@@ -312,10 +388,32 @@ master_pipe* master_pipe_init(int masterfd)
 
 	mp->destruct_proc = master_pipe_default_destructor;
 	mp->sigchild_proc = master_pipe_default_sigchild;
+	mp->terminate_proc = master_pipe_default_terminate;
 
 	mp->task_head = NULL;
 
 	return mp;
+}
+
+
+void master_pipe_terminate(master_pipe *mp)
+{
+	task_state *task = mp->task_head;
+
+	while(task) {
+		(*task->spec->terminate_proc)(mp, task->spec);
+		task = task->next;
+	}
+
+	(*mp->terminate_proc)(mp);
+
+	// TODO: Should probably wait around for kids to die...?
+
+	while(mp->task_head) {
+		task_remove(mp);
+	}
+
+	// now the pipe should be entirely destroyed.
 }
 
 

@@ -10,6 +10,7 @@
  * the stupid filter proc.
  */
 
+#include <assert.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,6 +144,7 @@ const char* sanitize(const char *s, int n)
 {
 	int i;
 	static char buf[64];
+	char *cp = buf;
 
 	if(n > sizeof(buf)-1) {
 		n = sizeof(buf)-1;
@@ -150,12 +152,15 @@ const char* sanitize(const char *s, int n)
 
 	for(i=0; i<n; i++) {
 		if(s[i] < 32 || s[i] == 127) {
-			buf[i] = '#';
+			*cp++ = '\\';
+			*cp++ = (((unsigned char)s[i] >> 6) & 0x07) + '0';
+			*cp++ = (((unsigned char)s[i] >> 3) & 0x07) + '0';
+			*cp++ = (((unsigned char)s[i] >> 0) & 0x07) + '0';
 		} else {
-			buf[i] = s[i];
+			*cp++ = s[i];
 		}
 	}
-	buf[i] = '\0';
+	*cp = '\0';
 
 	return buf;
 }
@@ -175,16 +180,24 @@ void logio(const char *name, int fd, const char *buf, int cnt, int act)
 		log_dbg("%s %d bytes from %d: (%d)\t\t<<%s>>%s",
 				name, act, fd, cnt, sanitize(buf, n), cont);
 	} else {
-		log_dbg("%s error from %d: %d (%d)",
+		log_dbg("%s error from %d: %d (%s)",
 				name, fd, errno, strerror(errno));
 	}
 }
 
 
-/* partially fill the fifo by calling read() */
-/* only performs a single read call. */
-/* TODO: get rid of the copy */
-/* TODO: make it resize the buffer to try to exhaust the read */
+/** Partially fill the fifo by calling read().
+ *
+ * @returns the number of bytes read (0 is a valid number; it means
+ * that the filter proc ate all the data).
+ *
+ * TODO:
+ *  Only performs a single read call.  We should probably read to exhaustion.
+ *  So, the first read must not return EAGAIN.  After the first read, we keep
+ *  reading until we get EAGAIN.
+ *
+ * TODO: get rid of the copy.
+ * TODO: make it resize the fifo if necessary to try to exhaust the read */
 
 int fifo_read(struct fifo *f, int fd)
 {
@@ -199,23 +212,37 @@ int fifo_read(struct fifo *f, int fd)
 	do {
 		errno = 0;
 		n = read(fd, buf, cnt);
+		if(n == -1) {
+			log_dbg("Error reading %d for fifo: %d (%s)", fd, errno, strerror(errno));
+		}
 	} while(n == -1 && errno == EINTR);
 
 	logio("Read", fd, buf, cnt, n);
 	cnt = n;
 
+	if(cnt < 0) {
+		// We had better not be told that there's no data to read!
+		// We just received an event telling us that there was.
+		//
+		// Hm.  It appears that all the read fds return read events
+		// when a sigchild happens, but none of them actually have data?
+		// assert(errno != EAGAIN);
+	} else if(cnt == 0) {
+		// eof request
+		cnt = -2;
+	}
+
+
 	if(f->proc) {
 		int old = fifo_avail(f);
 		(*f->proc)(f, buf, cnt, fd);
-		cnt = old - fifo_avail(f);
+		if(cnt > 0) {
+			cnt = old - fifo_avail(f);
+		}
 	} else {
 		// copy the read data into the buffer
 		if(cnt > 0) {
 			fifo_unsafe_append(f, buf, cnt);
-		} else if(cnt < 0) {
-			if(errno == EAGAIN) {
-				cnt = 0;
-			}
 		}
 	}
 
@@ -223,7 +250,12 @@ int fifo_read(struct fifo *f, int fd)
 }
 
 
-/* attempt to empty the fifo by calling write() */
+/** Attempt to empty the fifo by calling write().
+ *  
+ * @returns the number of bytes written or -1 if there was an error.
+ * This routine should never return 0 but I can't guarantee it.
+ */
+
 int fifo_write(struct fifo *f, int fd)
 {
 	int cnt = 0;
@@ -254,7 +286,6 @@ int fifo_write(struct fifo *f, int fd)
 			}
 		}
 	}
-
 
 	return cnt;
 }

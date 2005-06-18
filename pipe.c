@@ -34,6 +34,46 @@ static int set_nonblock(int fd)
 }
 
 
+/** Calls fifo_read and handles the case if it returns an EOF.
+ */
+
+static int pipe_fifo_read(struct pipe *pipe)
+{
+	int cnt = fifo_read(&pipe->fifo, pipe->read_atom->atom.fd);
+	if(cnt == -2) {
+		// File was EOFd.  Close automatically.
+		log_dbg("Got EOF.  Closed %d", pipe->read_atom->atom.fd);
+		close(pipe->read_atom->atom.fd);
+		pipe_atom_destroy(pipe->read_atom);
+		pipe->read_atom->atom.fd = -1;
+		// TODO: we might want to inform the write_atom that that the read
+		// side of the pipe is closed so it won't get any more data.
+		// OTOH, when it goes to pull data from the fifo, it can notice
+		// for itself.
+	}
+
+	return cnt;
+}
+
+
+/** Calls fifo_write and handles the case if it returns EPIPE.
+ */
+
+static int pipe_fifo_write(struct pipe *pipe)
+{
+	int cnt = fifo_write(&pipe->fifo, pipe->write_atom->atom.fd);
+	if(cnt == -1 && errno == EPIPE) {
+		log_dbg("Got EPIPE.  Closed %d", pipe->write_atom->atom.fd);
+		close(pipe->write_atom->atom.fd);
+		pipe_atom_destroy(pipe->write_atom);
+		pipe->write_atom->atom.fd = -1;
+		// TODO maybe inform the read atom that no more data is coming?
+	}
+
+	return cnt;
+}
+
+
 /** Reads from the input side of the pipe, through the fifo
  * proc, into the fifo.  Immediately writes as much as possible,
  * scheduling any remainer for later.
@@ -41,19 +81,27 @@ static int set_nonblock(int fd)
 
 static void pipe_auto_read(struct pipe *pipe)
 {
+	int cnt;
+
 	if(!fifo_avail(&pipe->fifo)) {
 		assert(fifo_avail(&pipe->fifo) > 0);
 	}
 
-	fifo_read(&pipe->fifo, pipe->read_atom->atom.fd);
+	cnt = pipe_fifo_read(pipe);
+	if(cnt == -1) {
+		log_warn("Error reading %d for pipe: %d (%s)",
+				pipe->read_atom->atom.fd, errno, strerror(errno));
+	}
 
 	// perhaps the fifo proc sucked up all the data.
+	// Because we're using read/write events, we should never get a
+	// 0-byte read or write (well, the 0-byte read indicates EOF).
 	if(!fifo_count(&pipe->fifo)) {
 		return;
 	}
 
 	// immediately try to write the fifo out
-	fifo_write(&pipe->fifo, pipe->write_atom->atom.fd);
+	pipe_fifo_write(pipe);
 
 	// return if we're all done (should be the normal case)
 	if(!fifo_count(&pipe->fifo)) {
@@ -79,12 +127,12 @@ static void pipe_auto_read(struct pipe *pipe)
 static void pipe_auto_write(struct pipe *pipe)
 {
 	assert(fifo_count(&pipe->fifo) > 0);
-	fifo_write(&pipe->fifo, pipe->write_atom->atom.fd);
+	pipe_fifo_write(pipe);
 	assert(fifo_avail(&pipe->fifo) > 0);
 
 	// We just freed up some room.  If reads are currently
 	// blocking, we need to unblock them.
-	if(pipe->block_read) {
+	if(pipe->block_read && pipe->read_atom->atom.fd >= 0) {
 		io_enable(&pipe->read_atom->atom, IO_READ);
 		pipe->block_read = 0;
 	}
@@ -246,7 +294,9 @@ void pipe_atom_init(pipe_atom *atom, int fd)
 
 void pipe_atom_destroy(pipe_atom *atom)
 {
-	io_del(&atom->atom);
+	if(atom->atom.fd >= 0) {
+		io_del(&atom->atom);
+	}
 }
 
 
