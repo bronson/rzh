@@ -29,9 +29,10 @@
 #include "util.h"
 
 
+int send_extra_nl = 1;		// turn off if your shell interprets bare NLs as commands.
 static int verbosity = 0;			// print notification/debug messages
 static int quiet = 0;				// suppress status messages
-static const char *dldir = NULL;	// download files to this directory
+const char *download_dir = NULL;	// download files to this directory
 
 static jmp_buf g_bail;
 
@@ -58,22 +59,6 @@ void rzh_fork_prepare()
 }
 
 
-static int chdir_to_dldir()
-{
-	int succ = 0;
-
-	if(dldir) {
-		succ = chdir(dldir);
-		if(succ != 0) {
-			fprintf(stderr, "Could not chdir to \"%s\": %s\n",
-					dldir, strerror(errno));
-		}
-	}
-
-	return succ;
-}
-
-
 static void print_greeting()
 {
 	int err;
@@ -92,12 +77,43 @@ static void print_greeting()
 	}
 
 	if(getcwd(buf, sizeof(buf))) {
-		if(!quiet) {
-			printf("Saving to %s on %s\r\n", buf, hostname);
-		}
+		printf("Saving to %s on %s\r\n", buf, hostname);
 	} else {
 		// Some sort of error but not worth stopping the program.
 		printf("rzh is running but couldn't figure out the CWD!\r\n");
+	}
+}
+
+
+static void preflight()
+{
+	char buf[PATH_MAX];
+
+	// We'll skip preflighting too if the user asks for quiet.
+	if(quiet) {
+		return;
+	}
+
+	if(!download_dir) {
+		print_greeting();
+		return;
+	}
+
+	// Easy way of printing an absolute path: cd to it and call getcwd.
+
+	if(!getcwd(buf, sizeof(buf))) {
+		printf("rzh is running but couldn't figure out the CWD!\r\n");
+		bail(24);
+	}
+
+	if(chdir_to_dldir() != 0) {
+		bail(25);
+	}
+	print_greeting();
+
+	if(chdir(buf) != 0) {
+		printf("rzh is running but couldn't return to the CWD!\r\n");
+		bail(24);
 	}
 }
 
@@ -166,7 +182,7 @@ static void process_args(int argc, char **argv)
 		}
 	}
 
-	dldir = argv[optind++];
+	download_dir = argv[optind++];
 	
 	// supplying more than one directory is an error.
 	if(optind < argc) {
@@ -200,22 +216,16 @@ int main(int argc, char **argv)
 
 	val = setjmp(g_bail);
 	if(val == 0) {
-		if(chdir_to_dldir() != 0) {
-			bail(25);
-		}
-		print_greeting();
+		preflight();
 		mp = master_setup();
 		task_install(mp, echo_scanner_create_spec(mp));
 		for(;;) {
 			// main loop, only ends through longjmp
-			log_dbg("waiting");
 			io_wait(master_idle(mp));
-			log_dbg("dispatching");
 			io_dispatch();
 			// Turns out we need to dispatch before handling sigchlds.
 			// Otherwise, since the sigchld probably causes fds to open
 			// and close, we end up dispatching on stale events.  Bad.
-			log_dbg("checkchild");
 			master_check_sigchild(mp);
 		}
 	}

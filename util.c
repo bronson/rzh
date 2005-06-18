@@ -1,8 +1,12 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
+#include <errno.h>
+
 #include "util.h"
 #include "log.h"
 
@@ -35,5 +39,23 @@ void fdcheck()
 		log_err("ERROR: On forking, highest fd should be %d but it's %d", g_highest_fd, now);
 		// Keep running because it's not a fatal error.
 	}
+}
+
+
+int chdir_to_dldir()
+{
+	int succ = 0;
+
+	if(download_dir) {
+		succ = chdir(download_dir);
+		if(succ != 0) {
+			log_err("Could not chdir to \"%s\": %s\n",
+					download_dir, strerror(errno));
+			fprintf(stderr, "Could not chdir to \"%s\": %s\n",
+					download_dir, strerror(errno));
+		}
+	}
+
+	return succ;
 }
 

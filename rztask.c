@@ -21,11 +21,25 @@
 #include "util.h"
 
 
+int idle_cnt;
+
+
+void idle_init()
+{
+	idle_cnt = 0;
+}
+
+
 int idle_proc(task_spec *spec)
 {
-	const char *str = "Hello\r\n";
+	char buf[128];
+
+	idle_cnt += 1;
+	snprintf(buf, sizeof(buf), "%02d Hello!\r", idle_cnt);
+
 	// ok, this is idiotic.
-	write(spec->master->task_head->next->spec->outfd, str, strlen(str));
+	write(spec->master->task_head->next->spec->outfd, buf, strlen(buf));
+
 	return 1000;	// call us again in 1 second
 }
 
@@ -115,9 +129,24 @@ static void cherr_proc(io_atom *inatom, int flags)
 }
 
 
-static task_spec* create_rz_spec(int fd[3], int child_pid)
+static void rz_destructor(task_spec *spec, int free_mem)
+{
+	if(free_mem) {
+		// we're not exiting due to a fork
+		if(send_extra_nl) {
+			// see the manpage for why we send the extra newline.
+			write(spec->master->master_atom.atom.fd, "\n", 1);
+		}
+	}
+	task_default_destructor(spec, free_mem);
+}
+
+
+static task_spec* rz_create_spec(int fd[3], int child_pid)
 {
 	task_spec *spec = task_create_spec();
+
+	idle_init();
 
 	spec->infd = fd[0];
 	spec->outfd = fd[1];
@@ -126,6 +155,7 @@ static task_spec* create_rz_spec(int fd[3], int child_pid)
 
 	spec->idle_proc = idle_proc;
 	spec->err_proc = cherr_proc;
+	spec->destruct_proc = rz_destructor;
 	spec->verso_input_proc = typing_io_proc;
 	spec->verso_input_refcon = spec;
 
@@ -181,6 +211,7 @@ static void fork_rz_process(master_pipe *mp, int outfds[3], int *child_pid)
 		close(chstdout[1]);
 		close(chstderr[1]);
 
+		chdir_to_dldir();
 		task_fork_prepare(mp);
 		rzh_fork_prepare();
 		io_exit_check();
@@ -209,6 +240,6 @@ void rztask_install(master_pipe *mp)
 	int child_pid;
 
 	fork_rz_process(mp, fds, &child_pid);
-	task_install(mp, create_rz_spec(fds, child_pid));
+	task_install(mp, rz_create_spec(fds, child_pid));
 }
 

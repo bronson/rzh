@@ -21,6 +21,34 @@ USAGE
 		$ make rzh.1 && nroff -man rzh.1 | less
 
 
+NOTE
+
+	It's rather difficult for rzh to determine where the zmodem tranfer
+	ends and the user's command prompt begins.
+
+	It *could& parse the stream looking for a ZFIN packet followed by the 
+	ender's final over-and-out.  When it sees that, it would disconnect
+	the receive process and send all further data (presumably the command
+	prompt after the sz process exits) to the user's terminal.
+	
+	This sort of in-band control is typically pretty evil [1].  Instead
+	of watching the transfer, I've chosen to have this program send a "\n"
+	when it reconnects the user's terminal to the remote system.  The
+	first command prompt is lost, but the "\n" causes another one to be
+	printed so the user should be none the wiser.
+
+	The issue is, of course, is if your shell interprets CRs as actions
+	(GDB would be one example).  I don't know of any real-world shells
+	that do this.
+
+
+[1] I am reminded of catting hayes command strings to the ttys of random
+    modem pool users back in the early 90s.  This would kick them off
+	immediately and free up some lines for friends trying to get on.
+	In-band control almost always leads to problems and major security
+	issues.
+
+
 AUTHOR
 
 	Scott Bronson <bronson@rinspin.com>

@@ -2,7 +2,7 @@
 # Scott Bronson
 # This file is MIT licensed (public domain, but removes author liability).
 
-VERSION=0.5
+VERSION=0.7
 
 CSRC=bgio.c echo.c fifo.c log.c master.c pipe.c rztask.c task.c util.c zscan.c
 CHDR:=$(CSRC:.c=.h)

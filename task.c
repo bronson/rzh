@@ -161,17 +161,18 @@ void task_remove(master_pipe *mp)
 	
 	// remove from the linked list
 	mp->task_head = task->next;
-	task->spec->master = NULL;
-
-	task_destroy(task, 1);
 
 	if(mp->task_head) {
 		// restore the prevous task in the pipe
 		task_pipe_setup(mp);
+		task_destroy(task, 1);
 	} else {
 		// no more tasks, call the pipe destructor
+		task_destroy(task, 1);
 		(*mp->destruct_proc)(mp, 1);
 	}
+
+	task->spec->master = NULL;
 }
 
 
@@ -232,8 +233,14 @@ void task_default_sigchild(master_pipe *mp, task_spec *spec, int pid)
 		// We got a sigchld for this task, but the reader hasn't
 		// been closed yet.  This means there's probably a touch
 		// more data in the read pipe.  Read it to exhaustion.
-		assert(!"This should never happen?");
-		pipe_io_proc(&task->read_atom.atom, IO_READ);
+		while(task->read_atom.atom.fd != -1) {
+			log_info("Found extra data in pipe %d:", task->read_atom.atom.fd);
+			pipe_io_proc(&task->read_atom.atom, IO_READ);
+		}
+		if(mp->input_master.write_atom->atom.fd >= 0) {
+			log_info("Wrote extra data to %d\n", mp->input_master.write_atom->atom.fd);
+			fifo_write(&mp->input_master.fifo, mp->input_master.write_atom->atom.fd);
+		}
 	}
 
 	if(spec == mp->task_head->spec) {
@@ -252,6 +259,7 @@ void task_default_sigchild(master_pipe *mp, task_spec *spec, int pid)
 		// just exited, which means that the master pipe is gone
 		// anyway.  Nothing we can do except bail.  This must change
 		// if deeper pipes are being set up.
+		log_err("Parent process exited unexpectedly!\n");
 		fprintf(stderr, "Parent process exited unexpectedly!\n");
 		bail(43);
 	}
