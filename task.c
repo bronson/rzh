@@ -176,6 +176,14 @@ void task_remove(master_pipe *mp)
 }
 
 
+/** Aggressively terminates the topmost task. */
+
+void task_terminate(master_pipe *mp)
+{
+	(*mp->task_head->spec->terminate_proc)(mp, mp->task_head->spec);
+}
+
+
 /** Closes all open filehandles and frees the memory used by the
  *  task spec.  If you don't want to close any of the filehandles,
  *  set them to -1 in your destructor before calling this one.

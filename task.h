@@ -87,6 +87,7 @@ typedef struct master_pipe {
 
 void task_install(master_pipe *mp, task_spec *spec);
 void task_remove();
+void task_terminate(master_pipe *mp);
 
 // used when writing tasks
 task_spec* task_create_spec();

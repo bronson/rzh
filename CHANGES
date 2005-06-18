@@ -1,6 +1,8 @@
 TODO: turn off disable timeouts in rz
 TODO: should not print xfer info if quiet is turned on
 TODO: preflight: ensure the rzh command is readable and executable by us.
+TODO: rzh -p: checks to see if we're running under an rzh subshell or not.
+TODO: rzh --up, rzh -u, rzhu, or rzu: move up
 
 17 Jun 2005:
  * It works well!  It finally works well.

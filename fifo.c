@@ -143,15 +143,15 @@ static void print_fifo(fifo *f)
 const char* sanitize(const char *s, int n)
 {
 	int i;
-	static char buf[64];
+	static char buf[256];
 	char *cp = buf;
 
-	if(n > sizeof(buf)-1) {
-		n = sizeof(buf)-1;
+	if(n > sizeof(buf)/4-1) {
+		n = sizeof(buf)/4-1;
 	}
 
 	for(i=0; i<n; i++) {
-		if(s[i] < 32 || s[i] == 127) {
+		if(s[i] < 32 || s[i] >= 127) {
 			*cp++ = '\\';
 			*cp++ = (((unsigned char)s[i] >> 6) & 0x07) + '0';
 			*cp++ = (((unsigned char)s[i] >> 3) & 0x07) + '0';
@@ -166,7 +166,29 @@ const char* sanitize(const char *s, int n)
 }
 
 
-void logio(const char *name, int fd, const char *buf, int cnt, int act)
+void logrd(int fd, const char *buf, int cnt, int act)
+{
+	int n = act;
+	char *cont = "";
+	const char *bu;
+
+	if(n >= 0) {
+		if(n > 24) {
+			n = 24;
+			cont = "...";
+		}
+
+		bu = sanitize(buf, n);
+		log_info("Read %d bytes from %d: (%d)\t\t<<%s>>%s",
+				act, fd, cnt, bu, cont);
+	} else {
+		log_err("Read error from %d: %d (%s)",
+				fd, errno, strerror(errno));
+	}
+}
+
+
+void logwr(int fd, const char *buf, int cnt, int act)
 {
 	int n = act;
 	char *cont = "";
@@ -177,11 +199,11 @@ void logio(const char *name, int fd, const char *buf, int cnt, int act)
 			cont = "...";
 		}
 
-		log_dbg("%s %d bytes from %d: (%d)\t\t<<%s>>%s",
-				name, act, fd, cnt, sanitize(buf, n), cont);
+		log_dbg("Write %d bytes to %d: (%d)\t\t<<%s>>%s",
+				act, fd, cnt, sanitize(buf, n), cont);
 	} else {
-		log_dbg("%s error from %d: %d (%s)",
-				name, fd, errno, strerror(errno));
+		log_err("Write error to %d: %d (%s)",
+				fd, errno, strerror(errno));
 	}
 }
 
@@ -217,7 +239,7 @@ int fifo_read(struct fifo *f, int fd)
 		}
 	} while(n == -1 && errno == EINTR);
 
-	logio("Read", fd, buf, cnt, n);
+	logrd(fd, buf, cnt, n);
 	cnt = n;
 
 	if(cnt < 0) {
@@ -265,14 +287,14 @@ int fifo_write(struct fifo *f, int fd)
 		do {
 			errno = 0;
 			cnt = write(fd, f->buf+f->beg, f->end-f->beg);
-			logio("Wrote", fd, f->buf+f->beg, f->end-f->beg, cnt);
+			logwr(fd, f->buf+f->beg, f->end-f->beg, cnt);
 		} while(cnt == -1 && errno == EINTR);
 		if(cnt > 0) f->beg += cnt;
 	} else if(f->beg > f->end) {
 		do {
 			errno = 0;
 			cnt = write(fd, f->buf+f->beg, f->size-f->beg);
-			logio("Wrote", fd, f->buf+f->beg, f->size-f->beg, cnt);
+			logwr(fd, f->buf+f->beg, f->size-f->beg, cnt);
 		} while(cnt == -1 && errno == EINTR);
 		if(cnt > 0) {
 			f->beg = (f->beg + cnt) % f->size;
@@ -280,7 +302,7 @@ int fifo_write(struct fifo *f, int fd)
 				do {
 					errno = 0;
 					n = write(fd, f->buf, f->end);
-					logio("Wrote", fd, f->buf, f->end, cnt);
+					logwr(fd, f->buf, f->end, cnt);
 				} while(cnt == -1 && errno == EINTR);
 				if(n > 0) { f->beg = n; cnt += n; }
 			}

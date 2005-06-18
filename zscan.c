@@ -14,6 +14,7 @@
 #include "zscan.h"
 #include "util.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -185,6 +186,22 @@ static void zscan_start(zscanstate *conn, struct fifo *f, const char *cp, const 
 	} while(0)
 
 
+
+/** Scan for the start of a ZRQINIT header.  zmodem transfers often
+ * 	begin with a "rz\n" character sequence.  We try to suppress that.
+ *
+ * 	We need to be a bit tricky with two sequences.  "rz\n" must all
+ * 	appear in a single packet.  Otherwise, the user may have typed it
+ * 	and will be wondering why the "r" he just typed is being suppressed!
+ * 	Same with the "**\030" sequence -- the user might be wondering where
+ * 	the asterixes he typed went!  Other than those two sequences, the
+ * 	packet boundaries may fall wherever.
+ *
+ * 	This behavior may cause us to miss some start packets, but I think
+ * 	that's unlikely.  Far better that than try to explain to the user
+ * 	why "r"s and "*"s don't appear until you type more characters...
+ */
+
 void zscan(zscanstate *conn, const char *cp, const char *ce, struct fifo *f, int fd)
 {
 	const char *cb;
@@ -287,4 +304,90 @@ void zscan(zscanstate *conn, const char *cp, const char *ce, struct fifo *f, int
 
 	crEnd();
 }
+
+
+/** Scans for the ZFIN packet */
+
+void zfinscan(struct fifo *f, const char *buf, int size, int fd)
+{
+	static const char zfin[] = "**\030B0800000000022d\015\212";
+
+	const char *ref = (char*)f->refcon;
+	const char *cp, *ce;
+
+	if(size <= 0 || f->refcon == (void*)-1) {
+		return;
+	}
+	
+	for(;;) {
+		if(ref) {
+			cp = buf;
+		} else {
+			cp = memchr(buf, '*', size);
+			if(!cp) {
+				// couldn't find the start char in the entire buffer.
+				fifo_unsafe_append(f, buf, size);
+				return;
+			}
+
+			// found the start char.  flush all the data up to the start char.
+			fifo_unsafe_append(f, buf, cp-buf);
+			size -= cp-buf;
+			buf = cp;
+			// and set up the state var
+			ref = zfin;
+		}
+		ce = buf + size;
+
+		while(cp < ce && *cp == *ref && ref < zfin+sizeof(zfin)-1) {
+			cp += 1;
+			ref += 1;
+		}
+
+		if(*ref == 0) {
+			log_info("ZFIN on fd %d!", fd);
+			fifo_unsafe_append(f, zfin, sizeof(zfin)-1);
+
+			// and that's it.  we won't pass any more data at all.
+			f->refcon = (void*)-1;
+			return;
+		} else if(cp >= ce) {
+			// out of data, so we'll return and get called with more
+			break;
+		} else if(*cp != *ref) {
+			// couldn't match.  append what we have so far.
+			fifo_unsafe_append(f, zfin, ref-zfin);
+			size -= ref-zfin;
+			buf = cp;
+			//  unset the state var
+			ref = NULL;
+		} else {
+			assert(!"This should be unpossible!");
+		}
+	}
+
+	f->refcon = (void*)ref;
+}
+
+
+/*
+void zfinscan(struct fifo *f, const char *buf, int size, int fd)
+{
+	log_warn("enter: size=%d refcon=%08lX", size, (long)f->refcon);
+	int ofe = f->end;
+	azfinscan(f, buf, size, fd);
+	int nfe = f->end;
+
+	if(nfe >= ofe) {
+		if(nfe - ofe != size) {
+			log_warn("sizes differ!");
+		} else if(memcmp(f->buf+ofe, buf, size) != 0) {
+			log_warn("contents differ!");
+		}
+	} else {
+		// skip this for now
+		log_warn("wrap!");
+	}
+}
+*/
 

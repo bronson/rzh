@@ -1,5 +1,4 @@
 extern int g_highest_fd;
-extern int send_extra_nl;
 
 extern const char *download_dir;
 

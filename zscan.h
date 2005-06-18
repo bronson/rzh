@@ -21,4 +21,4 @@ zscanstate* zscan_create(zstart_proc proc, void *refcon);
 void zscan_destroy(zscanstate *state);
 
 void zscan(zscanstate *conn, const char *cb, const char *ce, struct fifo *f, int fd);
-
+void zfinscan(struct fifo *f, const char *buf, int size, int fd);

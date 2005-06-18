@@ -19,6 +19,7 @@
 #include "task.h"
 #include "rztask.h"
 #include "util.h"
+#include "zscan.h"
 
 
 int idle_cnt;
@@ -55,7 +56,8 @@ static void parse_typing(const char *buf, int len, void *refcon)
 			case 24: 	// ^X
 			case 27:	// ESC
 				fprintf(stderr, "CANCEL!\r\n");
-				master_pipe_terminate(spec->master);
+				// master_pipe_terminate(spec->master);
+				task_terminate(spec->master);
 				break;
 
 			default:
@@ -129,19 +131,6 @@ static void cherr_proc(io_atom *inatom, int flags)
 }
 
 
-static void rz_destructor(task_spec *spec, int free_mem)
-{
-	if(free_mem) {
-		// we're not exiting due to a fork
-		if(send_extra_nl) {
-			// see the manpage for why we send the extra newline.
-			write(spec->master->master_atom.atom.fd, "\n", 1);
-		}
-	}
-	task_default_destructor(spec, free_mem);
-}
-
-
 static task_spec* rz_create_spec(int fd[3], int child_pid)
 {
 	task_spec *spec = task_create_spec();
@@ -153,9 +142,15 @@ static task_spec* rz_create_spec(int fd[3], int child_pid)
 	spec->errfd = fd[2];
 	spec->child_pid = child_pid;
 
+	spec->inma_proc = zfinscan;
+	spec->inma_refcon = 0;
+	/*
+	spec->maout_proc = zfinscan;
+	spec->maout_refcon = 0;
+	*/
+
 	spec->idle_proc = idle_proc;
 	spec->err_proc = cherr_proc;
-	spec->destruct_proc = rz_destructor;
 	spec->verso_input_proc = typing_io_proc;
 	spec->verso_input_refcon = spec;
 

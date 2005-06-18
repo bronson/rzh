@@ -29,7 +29,6 @@
 #include "util.h"
 
 
-int send_extra_nl = 1;		// turn off if your shell interprets bare NLs as commands.
 static int verbosity = 0;			// print notification/debug messages
 static int quiet = 0;				// suppress status messages
 const char *download_dir = NULL;	// download files to this directory
@@ -224,6 +223,7 @@ int main(int argc, char **argv)
 	g_highest_fd = find_highest_fd();
 
 	log_init("/tmp/rzh_log");
+	log_set_priority(LOG_INFO);
 	log_dbg("Highest numbered fd on entry: %d", g_highest_fd);
 
 	// We do not ensure that io_exit is called after forking but
