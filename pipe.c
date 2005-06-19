@@ -172,15 +172,13 @@ int pipe_write(struct pipe *pipe, const char *buf, int size)
 		} while(cnt == -1 && errno == EINTR);
 		if(cnt < 0) {
 			log_warn("pipe write: cnt=%d error=%d (%s)", cnt, errno, strerror(errno));
-		}
-		if(cnt > 0) {
+		} else {
+			log_dbg("pipe_write %d bytes to %d: %s", cnt, pipe->write_atom->atom.fd, sanitize(buf, cnt));
 			buf += cnt;
 			total += cnt;
 			size -= cnt;
 		}
 	}
-
-	log_dbg("pipe_write %d bytes to %d: %s", cnt, pipe->write_atom->atom.fd, sanitize(buf, size));
 
 	if(size <= 0) {
 		// no need to watch for write events on this file

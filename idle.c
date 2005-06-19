@@ -126,8 +126,7 @@ static void idle_get_numbers(task_spec *spec, idle_numbers *out)
 }
 
 
-/** Pads the string out to the given number of characters with
- *  spaces and then appends a \r.
+/** Pads the string out to the given number of characters with spaces
  */
 
 static void adjust_string_width(char *buf, int width)
@@ -137,9 +136,6 @@ static void adjust_string_width(char *buf, int width)
 	for(i=strlen(buf); i<width; i++) {
 		buf[i] = ' ';
 	}
-
-	buf[width-1] = '\r';
-	buf[width] = '\0';
 }
 
 
@@ -193,6 +189,8 @@ int idle_proc(task_spec *spec)
 	}
 	adjust_string_width(buf, len);
 
+	buf[len-1] = '\r';
+
 	// ok, this list of pointers is a little silly.
 	write(spec->master->task_head->next->spec->outfd, buf, len);
 
@@ -222,7 +220,7 @@ void idle_end(task_spec *spec)
 	idle_get_numbers(spec, &numbers);
 
 	snprintf(buf, sizeof(buf),
-		"Received %s at %s/s   Sent %s at %s/s.\r\n",
+		"Received %s at %s/s   Sent %s at %s/s.",
 		n->rnum, n->rbps, n->snum, n->sbps);
 
 	len = master_get_window_width(spec->master);
@@ -231,7 +229,10 @@ void idle_end(task_spec *spec)
 	}
 	adjust_string_width(buf, len);
 
-	pipe_write(&spec->master->master_output, buf, strlen(buf));
+	buf[len-2] = '\r';
+	buf[len-1] = '\n';
+
+	pipe_write(&spec->master->master_output, buf, len);
 
 	idle_destroy(idle);
 }

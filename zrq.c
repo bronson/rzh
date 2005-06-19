@@ -270,7 +270,7 @@ void zrq_scan(zscanstate *conn, const char *cp, const char *ce, struct fifo *f, 
 		if(cp[0] == '*') {
 
 			// there may be any number of stars
-			while(*cp == '*' && cp < ce) {
+			while(cp < ce && *cp == '*') {
 				conn->starcnt += 1;
 				cp++;
 			}

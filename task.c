@@ -245,7 +245,7 @@ void task_default_sigchild(master_pipe *mp, task_spec *spec, int pid)
 			pipe_io_proc(&task->read_atom.atom, IO_READ);
 		}
 		if(mp->input_master.write_atom->atom.fd >= 0) {
-			log_info("Wrote extra data to %d\n", mp->input_master.write_atom->atom.fd);
+			log_info("Wrote extra data to %d", mp->input_master.write_atom->atom.fd);
 			fifo_write(&mp->input_master.fifo, mp->input_master.write_atom->atom.fd);
 		}
 	}

@@ -261,6 +261,11 @@ int fifo_read(struct fifo *f, int fd)
 		if(cnt > 0) {
 			cnt = old - fifo_avail(f);
 		}
+		if(cnt >= 0) {
+			log_dbg("Read proc added %d bytes to fifo for %d.", cnt, fd);
+		} else {
+			log_dbg("Read proc returned %d for %d.", cnt, fd);
+		}
 	} else {
 		// copy the read data into the buffer
 		if(cnt > 0) {

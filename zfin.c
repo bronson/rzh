@@ -85,7 +85,18 @@ void zfin_destroy(zfinscanstate *state)
 
 void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
 {
-	static const char zfin[] = "**\030B0800000000022d\015\212";
+	// technically this string should begin with "**".  however there's
+	// a boyer-mooreesque start problem: if the previous packet ends with
+	// "*", and the next packet is a ZFIN, this match algorightm won't
+	// find it.  It finds "**" (one star from prevous packet, one star
+	// from the next packet), fails to match \030 against the second star
+	// in the second packet, and starts over.  But now we only have one
+	// star!  The proper way is to implement a complex restart procedure.
+	// Much easier, though, to just search for the single star.  Since it's
+	// impossible for this sequence to be anywhere in a zmodem transfer
+	// OTHER than a ZFIN packet, it's an adequate workaround.
+
+	static const char zfin[] = "*\030B0800000000022d\015\212";
 
 	zfinscanstate *state = (zfinscanstate*)f->refcon;
 	const char *ref = state->ref;
@@ -98,15 +109,19 @@ void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
 	for(;;) {
 		if(ref) {
 			cp = buf;
+			log_dbg("zfin %d resuming string match at %d", fd, ref-zfin);
 		} else {
+			log_dbg("zfin %d searching for *", fd);
 			cp = memchr(buf, '*', size);
 			if(!cp) {
+				log_dbg("zfin %d not found, returning entire buffer", fd);
 				// couldn't find the start char in the entire buffer.
 				fifo_unsafe_append(f, buf, size);
 				return;
 			}
 
 			// found the start char.  flush all the data up to the start char.
+			log_dbg("zfin %d found.  appending previous %d bytes", fd, cp-buf);
 			fifo_unsafe_append(f, buf, cp-buf);
 			size -= cp-buf;
 			buf = cp;
@@ -120,30 +135,30 @@ void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
 			ref += 1;
 		}
 
+		// append the data to the fifo no matter what.
+		int tt = cp-buf;
+		fifo_unsafe_append(f, buf, cp-buf);
+		size -= cp-buf;
+		buf = cp;
+
 		if(*ref == 0) {
-			log_info("ZFIN on fd %d!", fd);
-			fifo_unsafe_append(f, zfin, sizeof(zfin)-1);
-			size -= cp-buf;
-			buf = cp;
+			log_info("ZFIN %d found!  appending %d bytes and moving on.", fd, tt);
 			f->proc = state->found;
 			(*f->proc)(f, buf, size, fd);
 			return;
 		} else if(cp >= ce) {
 			// out of data, so we'll return and get called with more
-			break;
+			log_dbg("zfin %d out of data %d bytes into string.  append %d bytes and return.", fd, ref-zfin, tt);
+			state->ref = ref;
+			return;
 		} else if(*cp != *ref) {
 			// couldn't match.  append what we have so far.
-			fifo_unsafe_append(f, zfin, ref-zfin);
-			size -= ref-zfin;
-			buf = cp;
-			//  unset the state var
+			log_dbg("zfin %d didn't match at %d.  append %d bytes and start over.", fd, ref-zfin, tt);
 			ref = NULL;
 		} else {
 			assert(!"This should be unpossible!");
 		}
 	}
-
-	f->refcon = (void*)ref;
 }
 
 
