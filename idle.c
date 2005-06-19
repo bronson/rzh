@@ -82,6 +82,7 @@ idle_state* idle_create(master_pipe *mp)
 		fprintf(stderr, "Could not allocate the idle structure.\n");
 		bail(51);
 	}
+	memset(idle, 0, sizeof(idle_state));
 
 	idle->send_start_count = mp->input_master.bytes_written;
 	idle->recv_start_count = mp->master_output.bytes_written;
@@ -198,6 +199,7 @@ int idle_proc(task_spec *spec)
 
 void idle_end(task_spec *spec)
 {
+	int len;
 	// We know that the new task is established before the
 	// old task's destructor is called.
 
@@ -211,8 +213,14 @@ void idle_end(task_spec *spec)
 	idle_get_numbers(spec, &numbers);
 
 	snprintf(buf, sizeof(buf),
-		"Received %s in %.5f s: %s/s   Sent %s: %s/s\r\n",
-		n->rnum, n->xfertime, n->rbps, n->snum, n->sbps);
+		"Received %s at %s/s   Sent %s at %s/s.\r\n",
+		n->rnum, n->rbps, n->snum, n->sbps);
+
+	len = master_get_window_width(spec->master);
+	if(len > sizeof(buf) - 1) {
+		len = sizeof(buf) - 1;
+	}
+	adjust_string_width(buf, len);
 
 	pipe_write(&spec->master->master_output, buf, strlen(buf));
 }

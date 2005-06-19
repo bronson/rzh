@@ -172,8 +172,6 @@ void task_remove(master_pipe *mp)
 		task_destroy(task, 1);
 		(*mp->destruct_proc)(mp, 1);
 	}
-
-	task->spec->master = NULL;
 }
 
 
