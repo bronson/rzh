@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <values.h>
+#include <pty.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -22,6 +23,7 @@
 #include "task.h"
 #include "master.h"
 #include "util.h"
+
 
 static int sigchild_received;
 
@@ -157,5 +159,12 @@ master_pipe* master_setup()
 	signal(SIGPIPE, sigpipe);
 
 	return mp;
+}
+
+
+int master_get_window_width(master_pipe *mp)
+{
+	bgio_state *bgio = mp->refcon;
+	return bgio->window.ws_col;
 }
 

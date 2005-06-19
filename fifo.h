@@ -64,3 +64,6 @@ int fifo_copy(struct fifo *src, struct fifo *dst);
 /* try to flush the fifo to its fd */
 void fifo_flush(struct fifo *f);
 
+
+// general purpose debug routine:
+const char* sanitize(const char *s, int n);

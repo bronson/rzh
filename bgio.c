@@ -34,10 +34,9 @@ int bgio_child_pid;		// this also sucks.  It's for the global sigchld handler.
 static void window_resize(int dummy)
 {
 	bgio_state *state = g_state;
-	struct winsize win;
 
-	ioctl(0, TIOCGWINSZ, (char*)&win);
-	ioctl(state->slave, TIOCSWINSZ, (char*)&win);
+	ioctl(0, TIOCGWINSZ, (char*)&state->window);
+	ioctl(state->slave, TIOCSWINSZ, (char*)&state->window);
 	kill(state->child_pid, SIGWINCH);
 }
 
@@ -109,16 +108,15 @@ static void do_child(bgio_state *state, const char *cmd)
 
 void bgio_start(bgio_state *state, const char *cmd)
 {
-	struct winsize win;
 	struct termios tt;
 
 	// this is why we can only handle one session at once.
 	g_state = state;
 
 	tcgetattr(0, &state->stdin_termios);
-	ioctl(0, TIOCGWINSZ, (char *)&win);
+	ioctl(0, TIOCGWINSZ, (char *)&state->window);
 	if (openpty(&state->master, &state->slave, NULL,
-				&state->stdin_termios, &win) < 0) {
+				&state->stdin_termios, &state->window) < 0) {
 		perror("calling openpty");
 		kill(0, SIGTERM);
 		exit(fork_error1);

@@ -1,7 +1,8 @@
-TODO: turn off disable timeouts in rz
+TODO: terminate the rz.
+TODO: create idle.c/h, zfin.c/h
+TODO: turn off disable timeouts in rz.  Nah, leave em on.  User can always cancel the transfer manually.
 TODO: should not print xfer info if quiet is turned on
 TODO: preflight: ensure the rzh command is readable and executable by us.
-TODO: rzh -p: checks to see if we're running under an rzh subshell or not.
 TODO: rzh --up, rzh -u, rzhu, or rzu: move up
 
 17 Jun 2005:

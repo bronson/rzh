@@ -10,6 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "log.h"
@@ -20,28 +21,178 @@
 #include "rztask.h"
 #include "util.h"
 #include "zscan.h"
+#include "master.h"
 
 
-int idle_cnt;
+typedef struct {
+	int recv_start_count;	///< number of bytes in the write pipe when the rz started.
+	int send_start_count;	///< number of bytes in the read pipe when the rz started.
+	int call_cnt;			///< number of times idle proc has been called.
+	struct timespec start_time;
+} idle_state;
 
 
-void idle_init()
+static void human_readable(size_t size, char *buf, int bufsiz)
 {
-	idle_cnt = 0;
+	static const char *suffixes[] = { "B", "kB", "MB", "GB", 0 };
+	enum { step = 1024 };
+
+	const char **suffix = &suffixes[0];	
+	size_t base = 1;
+	size_t num;
+	int rem;
+
+	if(size > 0) {
+		while(*suffix) {
+			if(size >= base && size < base*step) {
+				num = size / base;
+				rem = (size * 100 / base) % 100;
+				if(base == 1) {
+					snprintf(buf, bufsiz, "%ld %s", (long)num, *suffix);
+				} else {
+					snprintf(buf, bufsiz, "%ld.%02d %s", (long)num, rem, *suffix);
+				}
+				return;
+			}
+
+			base *= 1024;
+			suffix += 1;
+		}
+	}
+
+	snprintf(buf, bufsiz, "%ld B", (long)size);
 }
 
 
-int idle_proc(task_spec *spec)
+/** Returns the difference between the two timepsecs in seconds. */
+static double timespec_diff(struct timespec *end, struct timespec *start)
 {
-	char buf[128];
+	double ds, de;
 
-	idle_cnt += 1;
-	snprintf(buf, sizeof(buf), "%02d Hello!\r", idle_cnt);
+	ds = start->tv_sec + ((double)start->tv_nsec)/1000000000;
+	de = end->tv_sec + ((double)end->tv_nsec)/1000000000;
 
-	// ok, this is idiotic.
-	write(spec->master->task_head->next->spec->outfd, buf, strlen(buf));
+	return de - ds;
+}
+
+
+static idle_state* idle_create(master_pipe *mp)
+{
+	idle_state *idle = malloc(sizeof(idle_state));
+	if(idle == NULL) {
+		fprintf(stderr, "Could not allocate the idle structure.\n");
+		bail(51);
+	}
+
+	idle->send_start_count = mp->input_master.bytes_written;
+	idle->recv_start_count = mp->master_output.bytes_written;
+	idle->call_cnt = 0;
+	clock_gettime(CLOCK_REALTIME, &idle->start_time);
+
+	return idle;
+}
+
+
+typedef struct {
+	char rnum[64];
+	char snum[64];
+	char rbps[64];
+	char sbps[64];
+	double xfertime;
+} idle_numbers;
+
+
+static void idle_get_numbers(task_spec *spec, idle_numbers *out)
+{
+	struct timespec end_time;
+	double xfertime;
+
+	idle_state *idle = (idle_state*)spec->idle_refcon;
+
+	clock_gettime(CLOCK_REALTIME, &end_time);
+	xfertime = timespec_diff(&end_time, &idle->start_time);
+	if(xfertime == 0.0) {
+		// assume a nanosecond if no time elapsed.
+		// this ensures we never divide by 0.
+		xfertime = 0.000000001;
+	}
+
+	int sendcnt = spec->master->input_master.bytes_written - idle->send_start_count;
+	human_readable(sendcnt, out->snum, sizeof(out->snum));
+	human_readable((size_t)((double)sendcnt/xfertime), out->sbps, sizeof(out->sbps));
+
+	int recvcnt = spec->master->master_output.bytes_written - idle->recv_start_count;
+	human_readable(recvcnt, out->rnum, sizeof(out->rnum));
+	human_readable((size_t)((double)recvcnt/xfertime), out->rbps, sizeof(out->rbps));
+
+	out->xfertime = xfertime;
+}
+
+
+/** Pads the string out to the given number of characters with
+ *  spaces and then appends a \r.
+ */
+
+void adjust_string_width(char *buf, int width)
+{
+	int i;
+
+	for(i=strlen(buf); i<width; i++) {
+		buf[i] = ' ';
+	}
+
+	buf[width-1] = '\r';
+	buf[width] = '\0';
+}
+
+
+/** Prints a continually updated status string during the transfer. */
+
+int rzt_idle_proc(task_spec *spec)
+{
+	char buf[256];
+	idle_numbers numbers, *n = &numbers;
+	int len;
+
+	idle_state *idle = (idle_state*)spec->idle_refcon;
+
+	idle->call_cnt += 1;
+	idle_get_numbers(spec, &numbers);
+
+	snprintf(buf, sizeof(buf),
+		"Receiving %s in %.5f s: %s/s   Sending %s: %s",
+		n->rnum, n->xfertime, n->rbps, n->snum, n->sbps);
+
+	len = master_get_window_width(spec->master);
+	if(len > sizeof(buf) - 1) {
+		len = sizeof(buf) - 1;
+	}
+	adjust_string_width(buf, len);
+
+	// ok, this list of pointers is a little silly.
+	write(spec->master->task_head->next->spec->outfd, buf, len);
 
 	return 1000;	// call us again in 1 second
+}
+
+
+/** Called at the end of the transfer to print a final status string. */
+
+void rzt_idle_end(task_spec *spec)
+{
+	// We know that the new task is established before the
+	// old task's destructor is called.
+
+	char buf[256];
+	idle_numbers numbers, *n = &numbers;
+
+	idle_get_numbers(spec, &numbers);
+
+	snprintf(buf, sizeof(buf),
+		"Received %s in %.5f s: %s/s   Sent %s: %s/s\r\n",
+		n->rnum, n->xfertime, n->rbps, n->snum, n->sbps);
+
+	pipe_write(&spec->master->master_output, buf, strlen(buf));
 }
 
 
@@ -55,8 +206,9 @@ static void parse_typing(const char *buf, int len, void *refcon)
 			case 3:		// ^C
 			case 24: 	// ^X
 			case 27:	// ESC
-				fprintf(stderr, "CANCEL!\r\n");
-				// master_pipe_terminate(spec->master);
+			case 'q':
+			case 'Q':
+				log_info("TYPING: Cancel!");
 				task_terminate(spec->master);
 				break;
 
@@ -131,11 +283,28 @@ static void cherr_proc(io_atom *inatom, int flags)
 }
 
 
-static task_spec* rz_create_spec(int fd[3], int child_pid)
+static void rzt_destructor_proc(task_spec *spec, int free_mem)
+{
+	rzt_idle_end(spec);
+
+	// if the maout zfin scanner saved some text for us, we
+	// need to manually re-insert it into the pipe.
+	zfinscanstate *maout = (zfinscanstate*)spec->maout_refcon;
+	if(maout->savebuf) {
+		log_dbg("RESTORE %d saved bytes into pipe: %s", maout->savecnt, sanitize(maout->savebuf, maout->savecnt));
+		pipe_write(&spec->master->master_output, maout->savebuf, maout->savecnt);
+	}
+
+	if(free_mem) {
+		zfinscan_destroy(spec->inma_refcon);
+		zfinscan_destroy(spec->maout_refcon);
+	}
+}
+
+
+static task_spec* rz_create_spec(master_pipe *mp, int fd[3], int child_pid)
 {
 	task_spec *spec = task_create_spec();
-
-	idle_init();
 
 	spec->infd = fd[0];
 	spec->outfd = fd[1];
@@ -143,13 +312,14 @@ static task_spec* rz_create_spec(int fd[3], int child_pid)
 	spec->child_pid = child_pid;
 
 	spec->inma_proc = zfinscan;
-	spec->inma_refcon = 0;
-	/*
+	spec->inma_refcon = zfinscan_create(zfindrop);
 	spec->maout_proc = zfinscan;
-	spec->maout_refcon = 0;
-	*/
+	spec->maout_refcon = zfinscan_create(zfinnooo);
+	
+	spec->idle_proc = rzt_idle_proc;
+	spec->idle_refcon = idle_create(mp);
 
-	spec->idle_proc = idle_proc;
+	spec->destruct_proc = rzt_destructor_proc;
 	spec->err_proc = cherr_proc;
 	spec->verso_input_proc = typing_io_proc;
 	spec->verso_input_refcon = spec;
@@ -235,6 +405,6 @@ void rztask_install(master_pipe *mp)
 	int child_pid;
 
 	fork_rz_process(mp, fds, &child_pid);
-	task_install(mp, rz_create_spec(fds, child_pid));
+	task_install(mp, rz_create_spec(mp, fds, child_pid));
 }
 

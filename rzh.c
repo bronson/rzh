@@ -152,13 +152,19 @@ static void process_args(int argc, char **argv)
 {
 	volatile int bk = 0;
 
+	enum {
+		LOG_LEVEL = CHAR_MAX + 1,
+	};
+
 	while(1) {
-		int c;
+		int c, i;
 		int optidx = 0;
 		static struct option long_options[] = {
 			// name, has_arg (1=reqd,2=opt), flag, val
 			{"debug-attach", 0, 0, 'D'},
 			{"help", 0, 0, 'h'},
+			{"loglevel", 1, 0, LOG_LEVEL},
+			{"log-level", 1, 0, LOG_LEVEL},
 			{"quiet", 0, 0, 'q'},
 			{"verbose", 0, 0, 'v'},
 			{"version", 0, 0, 'V'},
@@ -178,6 +184,12 @@ static void process_args(int argc, char **argv)
 			case 'h':
 				usage();
 				exit(0);
+
+			case LOG_LEVEL:
+				i = atoi(optarg);
+				fprintf(stderr, "log level set to %d\n", i);
+				log_set_priority(i);
+				break;
 
 			case 'q':
 				quiet++;

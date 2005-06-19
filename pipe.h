@@ -17,6 +17,7 @@ struct pipe {
 	pipe_atom *read_atom;		// all data read from here ...
 	pipe_atom *write_atom;		// ... gets written to here
 	int block_read;				// 1 if we need to stop reading, 0 if not.
+	int bytes_written;			// a monotonically increasing count of the number of bytes written.
 };
 
 
@@ -30,4 +31,8 @@ void pipe_init(struct pipe *pipe, pipe_atom *ratom, pipe_atom *watom, int size);
 void pipe_destroy(struct pipe *pipe);
 
 void pipe_io_proc(io_atom *aa, int flags);
+
+
+// utility function
+int set_nonblock(int fd);
 

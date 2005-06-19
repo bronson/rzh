@@ -21,7 +21,7 @@
 #include "util.h"
 
 
-static int set_nonblock(int fd)
+int set_nonblock(int fd)
 {
 	int i;
 
@@ -68,6 +68,10 @@ static int pipe_fifo_write(struct pipe *pipe)
 		pipe_atom_destroy(pipe->write_atom);
 		pipe->write_atom->atom.fd = -1;
 		// TODO maybe inform the read atom that no more data is coming?
+	}
+
+	if(cnt > 0) {
+		pipe->bytes_written += cnt;
 	}
 
 	return cnt;
@@ -175,6 +179,8 @@ int pipe_write(struct pipe *pipe, const char *buf, int size)
 			size -= cnt;
 		}
 	}
+
+	log_dbg("pipe_write %d bytes to %d: %s", cnt, pipe->write_atom->atom.fd, sanitize(buf, size));
 
 	if(size <= 0) {
 		// no need to watch for write events on this file
@@ -319,6 +325,7 @@ void pipe_init(struct pipe *pipe, pipe_atom *ratom, pipe_atom *watom, int size)
 	if(watom) watom->write_pipe = pipe;
 
 	pipe->block_read = 0;
+	pipe->bytes_written = 0;
 
 	// all pipes start out listening for readable events
 	// unless there's no atom on the read side (i.e. the progress pipe

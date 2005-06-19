@@ -15,7 +15,7 @@ COPTS+=-g
 all: rzh doc
 
 rzh: $(CSRC) $(CHDR)
-	$(CC) $(COPTS) $(CSRC) -lutil -o rzh
+	$(CC) $(COPTS) $(CSRC) -lutil -lrt -o rzh
 
 doc: rzh.1
 

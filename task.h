@@ -41,8 +41,11 @@ typedef struct task_spec {
  *  through the event loop so it will probably get called much more
  *  often than it requests.
  */
+
 	int (*idle_proc)(struct task_spec*);			///< The idle proc to call when this task is topmost.
-	void (*destruct_proc)(struct task_spec*, int forking);	///< Called when the task gets removed so the task_spec is no longer needed (unless you want to reuse it of course).  This routine is to free all memory, etc.  If forking is true, then we're running in a child that is about to exec, so close all filehandles but don't worry about memory.
+	void *idle_refcon;								///< Any data you want to associate explicitly with the idle proc.
+
+	void (*destruct_proc)(struct task_spec*, int free_mem);	///< Called when the task gets removed so the task_spec is no longer needed (unless you want to reuse it of course).  This routine is to free all memory, etc.  If forking is true, then we're running in a child that is about to exec, so close all filehandles but don't worry about memory.  The new task is established, but no I/O has occurred, when the previous task's destructor is called.
 	void (*sigchild_proc)(struct master_pipe*, struct task_spec*, int pid);	///< The SIGCHLD handler for this task.  See task_sigchild() for more.  This is set to task_default_sigchild by default.  If your task doesn't involve forked children, just leave task_spec::child_pid set to -1.
 	void (*terminate_proc)(struct master_pipe*, struct task_spec*);
 

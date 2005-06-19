@@ -48,6 +48,7 @@ static task_state* task_prepare(task_spec *spec)
 
 	if(spec->errfd >= 0 && spec->err_proc) {
 		task->err_atom.refcon = spec->err_refcon;
+		set_nonblock(spec->errfd);
 		io_atom_init(&task->err_atom.atom, spec->errfd, spec->err_proc);
 		err = io_add(&task->err_atom.atom, IO_READ);
 		if(err != 0) {
