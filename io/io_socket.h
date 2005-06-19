@@ -1,7 +1,7 @@
 /** @file io_socket.c
  *
- * This is actually a layer that adds sockets to whatever underlying io
- * layer you decide to use.
+ * This file adds some socket awareness whatever low-level i/o technique
+ * you use (select / epoll / kqueue / etc).
  */
 
 #include "io.h"

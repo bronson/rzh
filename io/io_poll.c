@@ -1,7 +1,5 @@
-// epoll.c
+// poll.c
 // Scott Bronson
-//
-// Uses epoll to satisfy gatekeeper's network I/O
 
 #include <sys/poll.h>
 

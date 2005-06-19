@@ -187,8 +187,11 @@ static void process_args(int argc, char **argv)
 
 			case LOG_LEVEL:
 				i = atoi(optarg);
-				fprintf(stderr, "log level set to %d\n", i);
+				if(i>0 && !log_get_priority()) {
+					log_init("/tmp/rzh.log");
+				}
 				log_set_priority(i);
+				fprintf(stderr, "log level set to %d\n", i);
 				break;
 
 			case 'q':
@@ -234,9 +237,7 @@ int main(int argc, char **argv)
 	// helps verify we're not leaking filehandles to the kid.
 	g_highest_fd = find_highest_fd();
 
-	log_init("/tmp/rzh_log");
-	log_set_priority(LOG_INFO);
-	log_dbg("Highest numbered fd on entry: %d", g_highest_fd);
+	log_set_priority(0);
 
 	// We do not ensure that io_exit is called after forking but
 	// before execing.  For select this is OK.  If we move to a

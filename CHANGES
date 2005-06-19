@@ -1,7 +1,6 @@
 TODO: preflight: ensure the rzh command is readable and executable by us.
 		and that the dldir exists and is writable.
 TODO: rzh --up, rzh -u, rzhu, or rzu: move up
-TODO: turn off logging unless user specified --loglevel
 
 17 Jun 2005:
  * It works well!  It finally works well.
@@ -35,29 +34,12 @@ todo: there is a slight chance of deadlock when we're installing a new task.
 	NOTE: this should solve the nested task create / sigchild issue.
 
 TODO: turn off disable timeouts in rz.  Nah, leave em on.  User can always cancel the transfer manually.
-todo: add specifying the rz program to use
-todo: need to repair the bailage all over the place.
+todo: add specifying the rz program to use (-r?)
+todo: add specifying the subshell to use (-c).
+
+todo: need to consolidate the bailage all over the place.
 	Consistent exit codes and stderr/log messages at least.
 
-todo: add specifying the subshell to use (-c).
 todo: what happens if I try to clobber a file?
 todo: there's no way to preserve symlinks, etc.  Maybe use tar
 	to implement an automatic archival mode?
-
-todo: a whole bunch of sz compliance tests should be run:
-todo: do we support sz - (from stdin, no file size sent)
-todo: support sz -y and -Y (open file for writing unconditionally -- clobber)
-todo: support sz -a (convert newlines)
-todo: support sz -+ (append transmitted data to end of file)
-todo: do we work with sz -8 (use 8 kb frames)?
-todo: do we work with sz -c (send a command) or sz -i?
-todo: do we work with sz -E (force sender to rename new file)?
-todo: do we work with sz -n (send file if no dest or src is newer)
-todo: do we work with sz -N (send file if no dest or src is newer or longer)
-todo: do we work with sz -f and sz -d?
-todo: do we work with sz -o (manual selection of crc)?
-todo: do we work with sz -p (protect existing files)?
-todo: do we work with sz -r (resume interrupted file transfer)?
-todo: do we work with sz -w (limit the window size)?
-todo: we need to support -L with various packetsizes.
-todo: do we work with sz -T (testing bad packets mode)?

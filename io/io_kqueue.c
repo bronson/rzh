@@ -1,7 +1,5 @@
 // io_kqueue.c
 // Scott Bronson
-//
-// Uses kqueue to satisfy gatekeeper's network I/O
 
 #include <stdio.h>
 #include <sys/time.h>

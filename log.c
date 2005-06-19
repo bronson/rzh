@@ -77,6 +77,10 @@ int log_vmsg(int prio, const char *fmt, va_list ap)
 	const char *pre;
     int ret;
 
+	if(!g_logfile || g_prio < prio) {
+		return 0;
+	}
+
 	switch(prio) {
 		case LOG_EMERG:
 			pre = "!!!!";
@@ -105,10 +109,6 @@ int log_vmsg(int prio, const char *fmt, va_list ap)
 		default:
 			pre = "????";
 	}
-
-    if(g_prio < prio) {
-        return 0;
-    }
 
 	ret = fprintf(g_logfile, "%s: ", pre);
     ret += vfprintf(g_logfile, fmt, ap);

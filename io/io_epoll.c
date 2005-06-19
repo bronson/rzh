@@ -1,7 +1,5 @@
 // epoll.c
 // Scott Bronson
-//
-// Uses epoll to satisfy gatekeeper's network I/O
 
 #include <stdio.h>
 #include <sys/epoll.h>

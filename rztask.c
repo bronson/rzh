@@ -128,6 +128,8 @@ static void rzt_destructor_proc(task_spec *spec, int free_mem)
 		zfin_destroy(spec->inma_refcon);
 		zfin_destroy(spec->maout_refcon);
 	}
+
+	task_default_destructor(spec, free_mem);
 }
 
 
