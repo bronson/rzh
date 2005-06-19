@@ -93,6 +93,12 @@ idle_state* idle_create(master_pipe *mp)
 }
 
 
+void idle_destroy(idle_state* idle)
+{
+	free(idle);
+}
+
+
 static void idle_get_numbers(task_spec *spec, idle_numbers *out)
 {
 	struct timespec end_time;
@@ -195,7 +201,9 @@ int idle_proc(task_spec *spec)
 }
 
 
-/** Called at the end of the transfer to print a final status string. */
+/** Called at the end of the transfer to print a final status string.
+ *  It also frees the idle state.
+ */
 
 void idle_end(task_spec *spec)
 {
@@ -205,6 +213,7 @@ void idle_end(task_spec *spec)
 
 	char buf[256];
 	idle_numbers numbers, *n = &numbers;
+	idle_state *idle = (idle_state*)spec->idle_refcon;
 
 	if(opt_quiet) {
 		return;
@@ -223,5 +232,7 @@ void idle_end(task_spec *spec)
 	adjust_string_width(buf, len);
 
 	pipe_write(&spec->master->master_output, buf, strlen(buf));
+
+	idle_destroy(idle);
 }
 
