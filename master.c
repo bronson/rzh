@@ -78,7 +78,9 @@ static void master_pipe_destructor(master_pipe *mp, int free_mem)
 		free(bgio);
 
 		// When we're done destroying the pipe, bail with no error.
-		fprintf(stderr, "rzh exited.\n");
+		if(!opt_quiet) {
+			fprintf(stderr, "rzh exited.\n");
+		}
 
 		// We only want to bail if we're exiting normally.  If we're
 		// just cleaning up before forking, no need to bail!

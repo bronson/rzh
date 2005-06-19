@@ -1,7 +1,7 @@
 TODO: terminate the rz.
 TODO: turn off disable timeouts in rz.  Nah, leave em on.  User can always cancel the transfer manually.
-TODO: should not print xfer info if quiet is turned on
 TODO: preflight: ensure the rzh command is readable and executable by us.
+		and that the dldir exists and is writable.
 TODO: rzh --up, rzh -u, rzhu, or rzu: move up
 
 17 Jun 2005:
@@ -27,36 +27,23 @@ todo: set all buffers to 1 byte and see if we garble anything
 todo: set all buffers to 7 bytes (1 larger than start string) and see if we garble anything
 
 todo: make expandable fifos so masses of memory will guard against deadlock.
+	(there doesn't seem to be a need...?)
+
 todo: there is a slight chance of deadlock when we're installing a new task.
 	The problem is draining the fifo for the new task.  Instead, we should
 	mark the fifo, and give it the new task to install.  Then when the fifo
 	has drained down to that point, we'll kick it over to the new task
 	automatically.  Right now, fifo_drain is really, really, evil.
 	NOTE: this should solve the nested task create / sigchild issue.
-		Easy way to solve for now: create new FIFOs.
 
 todo: add specifying the rz program to use
-todo: need to repair the bailage all over the place.  Consistent exit codes at least.
+todo: need to repair the bailage all over the place.
+	Consistent exit codes and stderr/log messages at least.
 
-
-todo: add progress disply
 todo: add specifying the subshell to use (-c).
-todo: what happens if the dldir is write-protected?
 todo: what happens if I try to clobber a file?
-todo: add a startup message, something like
-      "Saving to /home/bronson/downloads on lea.rinspin.com\n"?
-todo: make it equivalent to "rzh -r" if argv[0] =~ /rz$/
-todo: make it equivalent to "rzh -s" if argv[0] =~ /sz$/ (and add send function)
-todo: add exchanging (-x)
 todo: there's no way to preserve symlinks, etc.  Maybe use tar
 	to implement an automatic archival mode?
-
-
-todo: pdpzm appears 30-60 times slower than lrzsz??
-	./randfile --size=38648893 --seed=27045 > tt
-	time ./test.rzsz tt 		(takes ~2.4 seconds)
-	time ./test.rzh tt			(takes ~95 seconds)
-
 
 todo: a whole bunch of sz compliance tests should be run:
 todo: do we support sz - (from stdin, no file size sent)
@@ -75,16 +62,3 @@ todo: do we work with sz -r (resume interrupted file transfer)?
 todo: do we work with sz -w (limit the window size)?
 todo: we need to support -L with various packetsizes.
 todo: do we work with sz -T (testing bad packets mode)?
-
-todo: pdzm doesn't support the ZXSPARS sparse file operation flag.
-		(But it does support ZRPOS.  Not sure what this means.)
-	Or the ZTLZW/ZTCRYPT/ZTRLE flags
-	Or ZMCLOB (clobber existing file)
-	Or ZMPROT (protect existing file)
-	Or ZMAPND (append to existing file)
-	Or a bunch of other flags.
-	http://msdn.microsoft.com/library/en-us/randz/protocol/zmodem_zfile_file_attribute_packet.asp?frame=true
-
-todo: Change all source file line endings to Unix.  Right now they're a mix of DOS and Unix.
-	I'll probably never do this -- it makes diffing a pain)
-

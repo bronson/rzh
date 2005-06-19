@@ -140,11 +140,38 @@ static void adjust_string_width(char *buf, int width)
 
 int idle_proc(task_spec *spec)
 {
-	char buf[256];
-	idle_numbers numbers, *n = &numbers;
-	int len;
+	enum { sleeptime = 300 };	// time between invocations in ms.
 
+	char buf[256];
+	int len;
+	idle_numbers numbers, *n = &numbers;
 	idle_state *idle = (idle_state*)spec->idle_refcon;
+
+	struct timespec now_time;
+	double diff;
+	int bah;
+
+
+	if(opt_quiet) {
+		return sleeptime;
+	}
+
+	// We will get called much more often than our sleeptime when i/o
+	// is heavy.  Ensure that we don't update the display too fast.
+	// The first time we're called, tv_sec will be 0.  After that,
+	// we just need to ensure that we wait for the appropriate amount
+	// of time before updating the display again.
+	if(idle->last_time.tv_sec != 0) {
+		clock_gettime(CLOCK_REALTIME, &now_time);
+		diff = timespec_diff(&now_time, &idle->last_time);
+		bah = sleeptime - (int)(diff*1000);
+		if(bah > 0) {
+			return bah;
+		}
+	}
+
+
+	log_dbg("Updating display!");
 
 	idle->call_cnt += 1;
 	idle_get_numbers(spec, &numbers);
@@ -162,7 +189,8 @@ int idle_proc(task_spec *spec)
 	// ok, this list of pointers is a little silly.
 	write(spec->master->task_head->next->spec->outfd, buf, len);
 
-	return 1000;	// call us again in 1 second
+	clock_gettime(CLOCK_REALTIME, &idle->last_time);
+	return sleeptime;
 }
 
 
@@ -175,6 +203,10 @@ void idle_end(task_spec *spec)
 
 	char buf[256];
 	idle_numbers numbers, *n = &numbers;
+
+	if(opt_quiet) {
+		return;
+	}
 
 	idle_get_numbers(spec, &numbers);
 

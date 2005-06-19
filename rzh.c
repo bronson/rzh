@@ -30,7 +30,7 @@
 
 
 static int verbosity = 0;			// print notification/debug messages
-static int quiet = 0;				// suppress status messages
+int opt_quiet = 0;					// suppress status messages
 const char *download_dir = NULL;	// download files to this directory
 
 static jmp_buf g_bail;
@@ -92,7 +92,7 @@ static void preflight()
 	char var[PATH_MAX];
 	char *s;
 
-	if(!quiet) {
+	if(!opt_quiet) {
 		s = getenv(envname);
 		if(s) {
 			fprintf(stderr, "Another rzh process is downloading to %s\n", s);
@@ -122,7 +122,7 @@ static void preflight()
 		bail(39);
 	}
 
-	if(!quiet) {
+	if(!opt_quiet) {
 		print_greeting();
 	}
 
@@ -192,7 +192,7 @@ static void process_args(int argc, char **argv)
 				break;
 
 			case 'q':
-				quiet++;
+				opt_quiet++;
 				break;
 
 			case 'v':
