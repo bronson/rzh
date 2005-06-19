@@ -19,7 +19,7 @@
 #include "pipe.h"
 #include "task.h"
 #include "rztask.h"
-#include "zscan.h"
+#include "zrq.h"
 #include "util.h"
 
 
@@ -65,7 +65,7 @@ static void echo_scanner_start_proc(void *refcon)
 static void echo_scanner_filter_proc(struct fifo *f, const char *buf, int size, int fd)
 {
 	if(size > 0) {
-		zscan(f->refcon, buf, buf+size, f, fd);
+		zrq_scan(f->refcon, buf, buf+size, f, fd);
 	}
 }
 
@@ -73,7 +73,7 @@ static void echo_scanner_filter_proc(struct fifo *f, const char *buf, int size, 
 static void echo_scanner_destructor(task_spec *spec, int free_mem)
 {
 	if(free_mem) {
-		zscan_destroy(spec->maout_refcon);
+		zrq_destroy(spec->maout_refcon);
 	}
 	
 	echo_destructor(spec, free_mem);
@@ -94,7 +94,7 @@ task_spec *echo_scanner_create_spec(master_pipe *mp)
 	assert(!spec->maout_proc);
 	assert(spec->destruct_proc == echo_destructor);
 
-	spec->maout_refcon = zscan_create(echo_scanner_start_proc, mp);
+	spec->maout_refcon = zrq_create(echo_scanner_start_proc, mp);
 	spec->maout_proc = echo_scanner_filter_proc;
 	spec->destruct_proc = echo_scanner_destructor;
 
