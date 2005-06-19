@@ -25,7 +25,7 @@
  *  
  *  So, when we recognize a ZFIN from the child:
  *      We turn off that fifo.  No more data will be read from the child.
- *      	zfin_scan -> zfin_drop
+ *      	zfin_scan -> zfin_term -> zfin_drop
  *      We kill the child.  We know the sender has already sent a ZFIN.
  *  
  *  When we recognize a ZFIN from the master:
@@ -35,11 +35,15 @@
  *          Then, when the pipes are restored, the data is written back into the pipe
  * 		So the master actually cycles through 3 procs while scanning:
  * 			zfin_scan -> zfin_nooo -> zfin_save
+ * 		Then, in the destructor, we copy the saved data back into the output pipe.
  */
 
 
-#include "fifo.h"
 #include "log.h"
+#include "fifo.h"
+#include "io/io.h"
+#include "pipe.h"
+#include "task.h"
 #include "zfin.h"
 #include "util.h"
 
@@ -50,7 +54,8 @@
 #include <unistd.h>
 
 
-zfinscanstate* zfin_create(void (*proc)(struct fifo *f, const char *buf, int size, int fd))
+zfinscanstate* zfin_create(master_pipe *mp,
+		void (*proc)(struct fifo *f, const char *buf, int size, int fd))
 {
     zfinscanstate *state;
 
@@ -61,6 +66,7 @@ zfinscanstate* zfin_create(void (*proc)(struct fifo *f, const char *buf, int siz
     }
 	memset(state, 0, sizeof(zfinscanstate));
 
+	state->master = mp;
 	state->found = proc;
 
     return state;
@@ -120,9 +126,7 @@ void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
 			size -= cp-buf;
 			buf = cp;
 			f->proc = state->found;
-			if(size > 0) {
-				(*f->proc)(f, buf, size, fd);
-			}
+			(*f->proc)(f, buf, size, fd);
 			return;
 		} else if(cp >= ce) {
 			// out of data, so we'll return and get called with more
@@ -154,9 +158,7 @@ void zfin_nooo(struct fifo *f, const char *buf, int size, int fd)
 		// or there are no more Os to be found.
 		if(*buf != 'O' || state->oocount >= 2) {
 			f->proc = zfin_save;
-			if(size > 0) {
-				(*f->proc)(f, buf, size, fd);
-			}
+			(*f->proc)(f, buf, size, fd);
 			return;
 		}
 
@@ -197,8 +199,23 @@ void zfin_save(struct fifo *f, const char *buf, int size, int fd)
 }
 
 
+void zfin_term(struct fifo *f, const char *buf, int size, int fd)
+{
+	zfinscanstate *state = (zfinscanstate*)f->refcon;
+
+	task_terminate(state->master);
+
+	f->proc = zfin_drop;
+	(*f->proc)(f, buf, size, fd);
+}
+
+
 void zfin_drop(struct fifo *f, const char *buf, int size, int fd)
 {
+	if(size <= 0) {
+		return;
+	}
+
 	log_info("IGNORE from %d: %s", fd, sanitize(buf, size));
 }
 

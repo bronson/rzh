@@ -141,9 +141,9 @@ static task_spec* rz_create_spec(master_pipe *mp, int fd[3], int child_pid)
 	spec->child_pid = child_pid;
 
 	spec->inma_proc = zfin_scan;
-	spec->inma_refcon = zfin_create(zfin_drop);
+	spec->inma_refcon = zfin_create(mp, zfin_term);
 	spec->maout_proc = zfin_scan;
-	spec->maout_refcon = zfin_create(zfin_nooo);
+	spec->maout_refcon = zfin_create(mp, zfin_nooo);
 	
 	spec->idle_proc = idle_proc;
 	spec->idle_refcon = idle_create(mp);

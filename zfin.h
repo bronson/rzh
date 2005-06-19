@@ -12,13 +12,17 @@ typedef struct {
 	char *savebuf;	// saves all data after the ZFIN+OO.
 	int savemax;
 	int savecnt;
+
+	master_pipe *master;
 } zfinscanstate;
 
 
-zfinscanstate* zfin_create(void (*proc)(struct fifo *f, const char *buf, int size, int fd));
+zfinscanstate* zfin_create(master_pipe *mp,
+		void (*proc)(struct fifo *f, const char *buf, int size, int fd));
 void zfin_destroy(zfinscanstate *state);
 void zfin_scan(struct fifo *f, const char *buf, int size, int fd);
 void zfin_nooo(struct fifo *f, const char *buf, int size, int fd);
 void zfin_save(struct fifo *f, const char *buf, int size, int fd);
+void zfin_term(struct fifo *f, const char *buf, int size, int fd);
 void zfin_drop(struct fifo *f, const char *buf, int size, int fd);
 

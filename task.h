@@ -89,11 +89,11 @@ typedef struct master_pipe {
 
 
 void task_install(master_pipe *mp, task_spec *spec);
-void task_remove();
+void task_remove(master_pipe *mp);
 void task_terminate(master_pipe *mp);
 
 // used when writing tasks
-task_spec* task_create_spec();
+task_spec* task_create_spec(void);
 void task_default_destructor(task_spec *spec, int free_mem);
 
 void task_dispatch_sigchild(master_pipe *mp, int pid);

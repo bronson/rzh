@@ -1,26 +1,24 @@
-TODO: terminate the rz.
-TODO: turn off disable timeouts in rz.  Nah, leave em on.  User can always cancel the transfer manually.
 TODO: preflight: ensure the rzh command is readable and executable by us.
 		and that the dldir exists and is writable.
 TODO: rzh --up, rzh -u, rzhu, or rzu: move up
+TODO: turn off logging unless user specified --loglevel
 
 17 Jun 2005:
  * It works well!  It finally works well.
 
 13 Jun 2005:
- * pdpzm works but it is excruciatingly slow.  So, the third attempt:
-   fork a new rz process to handle the zmodem transfer.
+ * Try forking a new rz process to handle the zmodem transfer.
+   (pdpzm works but it is excruciatingly slow).
 
 13 Nov 2004: tagged version 0.2 (r27)
  * Made zmfr.c modular, sent in patches.
  * Added send functionality but it appears very broken.
 
  5 Nov 2004: tagged version 0.1 (r21)
- * First version that works.  Switched to the pdpzm library because the
-   lrzsz code is amazingly brittle.
+ * Switched to the pdpzm library because the lrzsz code is amazingly brittle.
 
 15 Jan 2004:
- * First version.  Tried to add this feature to lrzsz's rz command.
+ * First version.  Tried to modify lrzsz's rz command to add this feature.
 
 
 todo: set all buffers to 1 byte and see if we garble anything
@@ -36,6 +34,7 @@ todo: there is a slight chance of deadlock when we're installing a new task.
 	automatically.  Right now, fifo_drain is really, really, evil.
 	NOTE: this should solve the nested task create / sigchild issue.
 
+TODO: turn off disable timeouts in rz.  Nah, leave em on.  User can always cancel the transfer manually.
 todo: add specifying the rz program to use
 todo: need to repair the bailage all over the place.
 	Consistent exit codes and stderr/log messages at least.
