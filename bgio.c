@@ -83,7 +83,7 @@ static void do_child(bgio_state *state, const char *cmd)
 		fprintf(stderr, "Could not exec %s -c %s: %s\n",
 				shell, cmd, strerror(errno));
 	} else {
-		execl(shell, name, "-i", 0);
+		execl(shell, name, "-i", NULL);
 		fprintf(stderr, "Could not exec %s -i: %s\n",
 				shell, strerror(errno));
 	}
