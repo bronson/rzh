@@ -191,7 +191,9 @@ static void process_args(int argc, char **argv)
 					log_init("/tmp/rzh.log");
 				}
 				log_set_priority(i);
-				fprintf(stderr, "log level set to %d\n", i);
+				if(!opt_quiet) {
+					fprintf(stderr, "log level set to %d\n", i);
+				}
 				break;
 
 			case 'q':

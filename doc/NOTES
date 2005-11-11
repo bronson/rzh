@@ -1,0 +1,37 @@
+ZDLE: escape char.  I think it's ^X (CAN).
+	ZDLEE to send a ZDLE char
+
+ZPAD: *, begins frames
+
+CAN: ^X.  5 CANs abort the transfer.
+
+	* ZDLE A TYPE F3 F2 F1 F0 CRC1 CRC2
+	* ZDLE C TYPE F3 F2 F1 F0 CRC1 CRC2 CRC3 CRC4
+
+Back channel, receiver sends hex headers:
+
+	* * ZDLE ZHEX TYPE F3-F0 CRC1 CRC2 CR LF XON
+		(except no xon in ZFIN)
+
+ZDLE: ^X	ZHEX: B		TYPE: ZFIN=08	CRC=0000	\r\n^Q
+
+
+Priority: prevent zmodem garbage from being sent to the master
+	and screwing up the user's terminal session.
+
+Read from 4: master -> child, sender -> receiver
+
+	Watch for zfin.  If zfin is found, suppress following "OO"
+	if they are sent (yes this means that if the user's prompt
+	begins with a raw OO it will be suppressed.  Tough.  Again
+	Chuck is an idiot for making these typable, printable characters.
+	He should have used ^C^C or something)
+
+	So, when we see a ZFIN from the sender, this means that he is DONE.
+	We will not send any more zmodem data to him except for perhaps a
+	ZFIN packet from the reciever.
+
+Read from 7: child -> master, receiver -> sender, backchannel
+
+	"**\030B0800000000022d\015\212" is a ZFIN packet.
+	Receiver will never send OO

@@ -53,6 +53,17 @@ Prints the version and exits.
 
 =back
 
+=head1 KEYS
+
+rzh reads keyboard input while a transfer is going on.  Here are
+the keys that it recognizes:
+
+=over 4
+
+=item ESC ^C q Q
+
+Cancels the current transfer.
+
 =head1 ENVIRONMENT
 
 =over 4
@@ -67,6 +78,12 @@ If you're currently running rzh, this specifies the full path
 to the download directory.
 
 =back
+
+=head1 BUGS
+
+rzh suffers from all rz/sz bugs.
+For instance, with lrzsz, try calling sz with an invalid filename.
+Sometimes it will print an error, sometimes it will hang.
 
 =head1 SEE ALSO
 

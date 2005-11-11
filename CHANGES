@@ -1,7 +1,8 @@
-TODO: remove logging code, asserts, strip executable
 TODO: preflight: ensure the rzh command is readable and executable by us.
 		and that the dldir exists and is writable.
 TODO: rzh --up, rzh -u, rzhu, or rzu: move up
+TODO: set up tests
+TODO: remove logging code, asserts, strip executable
 
 17 Jun 2005:
  * It works well!  It finally works well.

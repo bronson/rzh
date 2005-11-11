@@ -1,0 +1,66 @@
+The problem is the bidirectional pipe.
+
+	in -> master, master -> out
+
+We're watching maout for the start transfer sequence.  When we see
+it (not necessarily at the beginning of the fifo), we need to drain
+maout of all the data up to the zmodem start.  Then we need to
+ensure that inma is drained of all data as well so we don't corrupt
+the transfer with stale data.
+
+
+So, to scan maout:
+	- you notice at byte 302 the beginning zmodem start string
+	- you drain the remaining 302 bytes from maout
+	- what should you do for inma at this point?
+		- You could wait until it goes quiescent
+		  	- it might never go quiescent
+		- You could switch it over immediately
+			- this seems to be the only plausible choice.  In this case it's ok.
+	- SO, maout is empty.  Inma may not be.
+		- Switch maout to machi.
+		- Switch inma to chima.
+		But now in and out are unused.
+		- Out will still accept whatever data we have to offer. no prob here.
+		- In may still be submitting data.  Oh well, nothing we can do.
+
+Then, to switch back:
+	- We get a sigchild.
+	- We switch back.
+		- What about draining the buffers???  Reading one fd will give
+		  a sigchld, but there may still be data on the other one?
+	- Hm.
+
+
+Using multiple fifos may be an advantage over marking a spot in one
+fifo and waiting for it to drain.  Marking the spot is somewhat painful.
+	Right now fifos are associated with the master pipe.
+	Making them a part of the task
+
+Hell, I can live with the way it is now.  Since it's usually being
+started by hand, the chance of deadlock is slim to none.
+
+
+
+4: master, sender
+8: child, receiver
+
+1) Sender sends ZFIN
+	Child receives the ZFIN
+2) Child sends ZFIN in response
+	Sender receives it
+		Sender might send "OO" (over and out) or not.  Stupid protocol.
+	We shut the child down immediately after it sends the zfin
+		This prevents further packets from hitting the sender
+		and being interpreted as shell commands.
+
+So, when we recognize a ZFIN from the child:
+	We turn off that fifo.  No more data will be read from the child.
+	We kill the child.  We know the sender has already sent a ZFIN.
+
+When we recognize a ZFIN from the master:
+	We supporess a further optional "OO"
+	We ensure that all further data gets written to stdout.
+		So, what we do, we store all data read from the master AFTER the ZFIN/OO
+		Then, when the pipes are restored, the data is written back into the pipe.
+
