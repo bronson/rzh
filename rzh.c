@@ -52,6 +52,16 @@ void bail(int val)
 }
 
 
+// Aborts the initialization process if we notice an error.
+// Once bgio is started, do not call this routine!  Call bail() instead.
+
+void preabort(int val)
+{
+	fprintf(stderr, "rzh was not started.\n");
+	longjmp(g_bail, val);
+}
+
+
 void rzh_fork_prepare()
 {
 	log_close();
@@ -137,31 +147,31 @@ static void preflight()
 
 	if(!getcwd(buf, sizeof(buf))) {
 		fprintf(stderr, "couldn't figure out the CWD!\n");
-		bail(24);
+		preabort(24);
 	}
 
 	if(download_dir) {
 		if(chdir(download_dir) != 0) {
 			fprintf(stderr, "couldn't cd to %s: %s\n",
 					download_dir, strerror(errno));
-			bail(25);
+			preabort(25);
 		}
 	}
 
 	if(!getcwd(var, sizeof(var))) {
 		fprintf(stderr, "couldn't figure out the dldir!\n");
-		bail(26);
+		preabort(26);
 	}
 
 	if(setenv(envname, var, 1) != -0) {
 		fprintf(stderr, "setenv %s to %s failed!\n", envname, var);
-		bail(39);
+		preabort(39);
 	}
 
 	// check the destination directory
 	if(stat(var, &st) != 0) {
 		fprintf(stderr, "Could not stat %s: %s\n", var, strerror(errno));
-		bail(49);
+		preabort(49);
 	}
 	if(!(st.st_mode & S_IFDIR)) {
 		fprintf(stderr, "Warning: destination %s is not a directory!\n", var);
@@ -173,19 +183,19 @@ static void preflight()
 	// check the rz executable
 	if(stat(cmd_exec, &st) != 0) {
 		fprintf(stderr, "Could not stat receive program \"%s\": %s\n", cmd_exec, strerror(errno));
-		bail(70);
+		preabort(70);
 	}
 	if(!S_ISREG(st.st_mode)) {
 		fprintf(stderr, "Error: receive program \"%s\" is not a regular file!\n", cmd_exec);
-		bail(71);
+		preabort(71);
 	}
 	if(!i_have_permission(&st, CAN_READ)) {
 		fprintf(stderr, "Error: can't read receive program \"%s\"!\n", cmd_exec);
-		bail(72);
+		preabort(72);
 	}
 	if(!i_have_permission(&st, CAN_EXECUTE)) {
 		fprintf(stderr, "Error: can't execute receive program \"%s\"!\n", cmd_exec);
-		bail(73);
+		preabort(73);
 	}
 
 	if(!opt_quiet) {
@@ -196,7 +206,7 @@ static void preflight()
 		if(chdir(buf) != 0) {
 			fprintf(stderr, "couldn't return to %s: %s\n",
 					buf, strerror(errno));
-			bail(27);
+			preabort(27);
 		}
 	}
 }
