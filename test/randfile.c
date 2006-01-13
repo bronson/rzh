@@ -93,7 +93,7 @@ void check_data(int fd, size_t incnt)
 {
 	char buf[BUFSIZ];
 	u_int32_t *p;
-	u_int32_t *e = (int*)(buf + BUFSIZ);
+	u_int32_t *e = (u_int32_t*)(buf + BUFSIZ);
 	int feof;
 	size_t count;
 	size_t size;
@@ -105,11 +105,11 @@ void check_data(int fd, size_t incnt)
 
 		if(size < BUFSIZ) {
 			// ensure that e is still int-aligned
-			e = (int*)(buf + (size & ~3));
+			e = (u_int32_t*)(buf + (size & ~3));
 		}
 
 		// check int-sized chunks
-		for(p = (int*)buf; p < e; p++) {
+		for(p = (u_int32_t*)buf; p < e; p++) {
 			// Using the RNG doubles the runtime for large data sets on my
 			// system.  118MB takes 0.977 sec w/o, and 1.874 sec with.
 			int rand = genrand_int32();
@@ -148,17 +148,17 @@ void generate_data(int fd, size_t size)
 {
 	char buf[BUFSIZ];
 	u_int32_t *p;
-	u_int32_t *e = (int*)(buf + BUFSIZ);
+	u_int32_t *e = (u_int32_t*)(buf + BUFSIZ);
 	size_t count = BUFSIZ;
 
 	while(size) {
 		if(size < count) {
 			// keep e int-aligned.
-			e = (int*)(buf + (size & ~3) + 4);
+			e = (u_int32_t*)(buf + (size & ~3) + 4);
 			count = size;
 		}
 
-		for(p = (int*)buf; p < e; p++) {
+		for(p = (u_int32_t*)buf; p < e; p++) {
 			// Using the RNG doubles the runtime for large data sets on my
 			// system.  118MB takes 0.977 sec w/o, and 1.874 sec with.
 			*p = genrand_int32();
