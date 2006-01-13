@@ -3,9 +3,10 @@
 # Scott Bronson
 # 3 Nov 2004
 
-# This throws an endless stream of randomly-sized files with
-# randomly chosen attributes at the zmodem transfer programs.
-# It stops if it finds an error.
+# This throws an endless stream of randomly-sized files with randomly chosen
+# attributes at the zmodem transfer programs.  It stops if it finds an error.
+# You can run it for a few days to try to shake out bugs.
+
 
 # -R  : use lrz instead of rzh -r to receive
 # -S  : use lsz instead of rzh -s to send

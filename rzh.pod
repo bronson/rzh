@@ -51,6 +51,23 @@ Increases verbosity.
 
 Prints the version and exits.
 
+=item B<--rz>
+
+Specifies the location and default arguments for the rz program.
+By default rzh uses "/usr/bin/rz".  You can use aliases to specify
+this argument by default (for instance, if you wanted to disable
+timeouts):
+
+	alias rzh="rzh --rz='/usr/bin/rz --no-timeout'"
+
+You must specify the full path to the executable -- rzh doesn't
+use the PATH variable.  Also, rzh doesn't currently support quoting
+or backslashing in the
+argument list.  --rz='rz --prompt="a b"' will fail because
+"a b" will be interpreted as two separate arguments.  Short of
+implementing a mini command-line parser in rzh, I don't see an easy way
+around this.  Contact the author if you need this functionality.
+
 =back
 
 =head1 KEYS

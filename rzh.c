@@ -12,7 +12,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <setjmp.h>
 #include <unistd.h>
@@ -24,6 +26,7 @@
 #include "io/io.h"
 #include "pipe.h"
 #include "task.h"
+#include "rzcmd.h"
 #include "echo.h"
 #include "master.h"
 #include "util.h"
@@ -32,7 +35,6 @@
 static int verbosity = 0;			// print notification/debug messages
 int opt_quiet = 0;					// suppress status messages
 const char *download_dir = NULL;	// download files to this directory
-
 static jmp_buf g_bail;
 
 
@@ -76,7 +78,7 @@ static void print_greeting()
 	}
 
 	if(getcwd(buf, sizeof(buf))) {
-		printf("Saving to %s on %s\r\n", buf, hostname);
+		printf("Saving to %s on %s.\r\n", buf, hostname);
 	} else {
 		// Some sort of error but not worth stopping the program.
 		printf("rzh is running but couldn't figure out the CWD!\r\n");
@@ -84,9 +86,43 @@ static void print_greeting()
 }
 
 
+// Returns 1 if we have the specified permission, 0 if not.
+// Op can be 0444 for read, 0222 for write, and 0111 for execute.
+
+#define CAN_READ  0444
+#define CAN_WRITE 0222
+#define CAN_EXECUTE  0111
+
+static int i_have_permission(const struct stat *st, int op)
+{
+	if(st->st_mode & S_IRWXU & op) {
+		if(geteuid() == st->st_uid) {
+			return 1;
+		}
+	}
+	
+	if(st->st_mode & S_IRWXG & op) {
+		if(getegid() == st->st_gid) {
+			return 1;
+		}
+	}
+
+	if(st->st_mode & S_IRWXO & op) {
+		return 1;
+	}
+
+	return 0;
+}
+
+
+// Run some checks to ensure we're running in a sane environment.
+// NOTE that this routine also sets an environment variable so it
+// does a bit more than JUST run checks...
+
 static void preflight()
 {
 	static const char *envname = "RZHDIR";
+	struct stat st;
 
 	char buf[PATH_MAX];
 	char var[PATH_MAX];
@@ -95,7 +131,7 @@ static void preflight()
 	if(!opt_quiet) {
 		s = getenv(envname);
 		if(s) {
-			fprintf(stderr, "Another rzh process is downloading to %s\n", s);
+			fprintf(stderr, "Warning: we're overriding another rzh process which is downloading to %s\n", s);
 		}
 	}
 
@@ -120,6 +156,36 @@ static void preflight()
 	if(setenv(envname, var, 1) != -0) {
 		fprintf(stderr, "setenv %s to %s failed!\n", envname, var);
 		bail(39);
+	}
+
+	// check the destination directory
+	if(stat(var, &st) != 0) {
+		fprintf(stderr, "Could not stat %s: %s\n", var, strerror(errno));
+		bail(49);
+	}
+	if(!(st.st_mode & S_IFDIR)) {
+		fprintf(stderr, "Warning: destination %s is not a directory!\n", var);
+	}
+	if(!i_have_permission(&st, CAN_WRITE)) {
+		fprintf(stderr, "Warning: can't write to %s!\n", var);
+	}
+
+	// check the rz executable
+	if(stat(cmd_exec, &st) != 0) {
+		fprintf(stderr, "Could not stat receive program \"%s\": %s\n", cmd_exec, strerror(errno));
+		bail(70);
+	}
+	if(!S_ISREG(st.st_mode)) {
+		fprintf(stderr, "Error: receive program \"%s\" is not a regular file!\n", cmd_exec);
+		bail(71);
+	}
+	if(!i_have_permission(&st, CAN_READ)) {
+		fprintf(stderr, "Error: can't read receive program \"%s\"!\n", cmd_exec);
+		bail(72);
+	}
+	if(!i_have_permission(&st, CAN_EXECUTE)) {
+		fprintf(stderr, "Error: can't execute receive program \"%s\"!\n", cmd_exec);
+		bail(73);
 	}
 
 	if(!opt_quiet) {
@@ -148,12 +214,14 @@ static void usage()
 }
 
 
+
 static void process_args(int argc, char **argv)
 {
 	volatile int bk = 0;
 
 	enum {
 		LOG_LEVEL = CHAR_MAX + 1,
+		RZ_CMD,
 	};
 
 	while(1) {
@@ -166,6 +234,7 @@ static void process_args(int argc, char **argv)
 			{"loglevel", 1, 0, LOG_LEVEL},
 			{"log-level", 1, 0, LOG_LEVEL},
 			{"quiet", 0, 0, 'q'},
+			{"rz", 1, 0, RZ_CMD},
 			{"verbose", 0, 0, 'v'},
 			{"version", 0, 0, 'V'},
 			{0, 0, 0, 0},
@@ -194,6 +263,10 @@ static void process_args(int argc, char **argv)
 				if(!opt_quiet) {
 					fprintf(stderr, "log level set to %d\n", i);
 				}
+				break;
+
+			case RZ_CMD:
+				parse_rz_cmd(optarg);
 				break;
 
 			case 'q':
@@ -228,6 +301,10 @@ static void process_args(int argc, char **argv)
 		fprintf(stderr, "\n");
 		exit(argument_error);
 	}
+
+	if(verbosity) {
+		print_rz_cmd();
+	}
 }
 
 
@@ -236,7 +313,11 @@ int main(int argc, char **argv)
 	int val;
 	master_pipe *mp;
 
+	init_rz_cmd();
+
 	// helps verify we're not leaking filehandles to the kid.
+	// (this would be a security risk if any of the filehandles
+	// were to files/devices with sensitive data)
 	g_highest_fd = find_highest_fd();
 
 	log_set_priority(0);
@@ -275,6 +356,8 @@ int main(int argc, char **argv)
 		rzh_fork_prepare();
 		io_exit_check();
 	}
+
+	free_rz_cmd();
 
 	exit(val);
 }

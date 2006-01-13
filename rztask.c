@@ -212,7 +212,7 @@ static void fork_rz_process(master_pipe *mp, int outfds[3], int *child_pid)
 		rzh_fork_prepare();
 		io_exit_check();
 
-		execl("/usr/bin/rz", "rz", "--disable-timeouts", NULL);
+		execl(cmd_exec, "rz", "--disable-timeouts", NULL);
 //		execl("/usr/bin/rz", "rz", 0);
 		fprintf(stderr, "Could not exec /usr/bin/rz: %s\n",
 				strerror(errno));

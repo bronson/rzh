@@ -4,12 +4,25 @@ running bittertest on a ramdisk
 To save wear and tear on your hard drive, it's a good idea to
 run bittertest on a ramdisk.  This assumes you're using kernel 2.6
 and you have enough ram to hold the files being transferred.
-bittertest creates files up to 64 MB, so you need 128 MB plus
-filesystem overhead.  Change bittertest's maximum file size by
+bittertest creates files up to 64 MB, so you need well over 128 MB
+of physical memory.  Change bittertest's maximum file size by
 setting MAXSIZE.
 
 # mkdir /tmp/ram
 # chown USER /tmp/ram    (the user that's going to run bittertest)
 # mount -t ramfs ramfs /tmp/ram
 $ ./bittertest -t /tmp/ram
+
+
+License Note
+------------
+
+mt19937ar.c has a somewhat oddball license (it's like bsd+attribution?).
+This would be a showstopper if I tried to include the code from mt19937ar.c
+directly in the rzh utility.  However, because it's only a part of a
+utility in the test suite and will probably never be distributed in binary
+form, I think that I'm completey within compliance.
+
+So, if you distribute the randfile utility in binary form, well, you'll have
+to to add a lot of idiotic legalese to your documentation.
 

@@ -10,7 +10,7 @@ REQUIREMENTS
 
 	Your system must have a /usr/bin/rz program that rzh can call.
 	Though the code is atrocious, I can recommend lrzsz.  To run
-	the tests, you'll need an sz command as well.
+	the test suite ("make test"), you'll need an sz command as well.
 
 
 INSTALLATION
@@ -27,6 +27,15 @@ USAGE
 
 		$ make rzh.1 && nroff -man rzh.1 | less
 
+	Very basic:
+
+		$ rzh /tmp
+		Saving to /tmp on localhost.
+		$ sz myfile
+		100 bytes transferred in 0.0 seconds.
+		$ exit
+		rzh exited.
+		
 
 AUTHOR
 

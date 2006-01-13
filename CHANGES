@@ -2,7 +2,10 @@ TODO: preflight: ensure the rzh command is readable and executable by us.
 		and that the dldir exists and is writable.
 TODO: rzh --up, rzh -u, rzhu, or rzu: move up
 TODO: set up tests
+TODO: move to tmtest 0.9, 0.8 is dead.
 TODO: remove logging code, asserts, strip executable
+TODO: log level and verbosity clash.  which one should I use?
+
 
 17 Jun 2005:
  * It works well!  It finally works well.

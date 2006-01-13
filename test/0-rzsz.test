@@ -2,6 +2,10 @@
 # Scott Bronson
 # 4 Nov 2004
 
+# Ensures that the "rz" and "sz" utilities can interoprate without
+# error.  If not, then this needs to be fixed before running rzh!
+
+
 rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
 
 mkdir /tmp/tmtest-zmodem
