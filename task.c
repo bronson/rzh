@@ -1,6 +1,12 @@
 /* task.c
  * 14 June 2005
  * Scott Bronson
+ *
+ * Tasks are inserted onto pipes to handle processing.  For instance,
+ * the default task is echo, just copying data unmodified over the
+ * pipe.  However, when the echo task notices a zmodem start sequence
+ * it inserts the rztask onto the pipe.  The rztask then handles all
+ * data until it exits, when the echo task takes over again.
  */
 
 #include <assert.h>

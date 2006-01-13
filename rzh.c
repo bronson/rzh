@@ -304,7 +304,7 @@ static void process_args(int argc, char **argv)
 	
 	// supplying more than one directory is an error.
 	if(optind < argc) {
-		fprintf(stderr, "Unrecognized argument%s: ", (optind+1==argc ? "" : "s"));
+		fprintf(stderr, "Too many arguments: ");
 		while(optind < argc) {
 			fprintf(stderr, "%s ", argv[optind++]);
 		}

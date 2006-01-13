@@ -2,6 +2,9 @@
  * Scott Bronson
  * 14 Jan 2004
  *
+ * Implements a fixed-size fifo buffer.  This can be used to smooth out
+ * a bursty stream.
+ *
  * This file is released under the MIT license.  This is basically the
  * same as public domain, but absolves the author of liability.
  * 

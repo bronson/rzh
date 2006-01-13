@@ -35,7 +35,7 @@ static void echo_destructor(task_spec *spec, int free_mem)
 }
 
 
-task_spec *echo_create_spec()
+static task_spec *echo_create_spec()
 {
 	task_spec *spec = task_create_spec();
 	if(spec == NULL) {
@@ -56,11 +56,17 @@ task_spec *echo_create_spec()
 /////////////////  Echo Scanner
 
 
+// This routine is called when the zrq scanner discovers the zmodem
+// start sequence.
+
 static void echo_scanner_start_proc(void *refcon)
 {
 	// the refcon is the master_pipe
 	rztask_install(refcon);
 }
+
+
+// This routine is called to process all data passing over the pipe.
 
 static void echo_scanner_filter_proc(struct fifo *f, const char *buf, int size, int fd)
 {

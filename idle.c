@@ -1,8 +1,8 @@
-/* rztask.c
+/* idle.c
  * 13 June 2005
  * Scott Bronson
  *
- * The task that handles the zmodem child.
+ * Prints the in-progress display while a zmodem transfer is happening.
  */
 
 #include <stdio.h>

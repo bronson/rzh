@@ -26,11 +26,15 @@ doc: rzh.1
 clean:
 	rm -f rzh rzh.1
 	@(cd test; $(MAKE) clean)
+	rm -f tags
 
 dist-clean: clean
 
 test: rzh
 	@(cd test; $(MAKE) test)
+
+tags: $(CSRC) $(CHDR)
+	ctags -R
 
 install: all
 	cp rzh /usr/local/bin
