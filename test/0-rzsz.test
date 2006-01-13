@@ -10,6 +10,7 @@ rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
 
 mkdir /tmp/tmtest-zmodem
 mkfifo /tmp/tmtest-zmodem-pipe
+
 randfile --seed=1 --size=512 > /tmp/tmtest-zmodem-data
 
 # sz outputs sometimes outputs a ^M on stderr so we need to just discard it.

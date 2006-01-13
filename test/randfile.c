@@ -20,6 +20,7 @@
 static int opt_check = 0;
 static int opt_seed = 1;
 static int opt_size = 1024;
+static int opt_verbose = 1;
 
 
 // reads as much as it can.  sets feof if it hit the eof.
@@ -89,26 +90,28 @@ void byte_check(u_int32_t ina, u_int32_t inb, size_t offset, int limit)
 }
 
 
+// THIS ROUTINE DOESN'T HANDLE NON-INTEGER-SIZED READS.
+// If it gets a 1-byte read in the middle of the file, it will
+// incorrectly assume this is the remainder at the end.  This
+// is valid for on-disk files, but definitely not for pipes or
+// network sockets.  TODO: fix this!  Make it buffer up any
+// remainders and use them the next time through the main loop.
+
 void check_data(int fd, size_t incnt)
 {
 	char buf[BUFSIZ];
-	u_int32_t *p;
-	u_int32_t *e = (u_int32_t*)(buf + BUFSIZ);
-	int feof;
-	size_t count;
-	size_t size;
-	int rem = 0;
+	u_int32_t *p, *e;		// buffer pointer, end
+	int feof;				// true if we're at eof
+	size_t count = 0;		// total bytes prcoessed
+	size_t size;			// size of the last read
+	int rem = 0;			// remainder (filesize is not divisible by 4)
 
 	do {
 		size = read_buffer(fd, buf, BUFSIZ, &feof);
 		rem = size & 3;
 
-		if(size < BUFSIZ) {
-			// ensure that e is still int-aligned
-			e = (u_int32_t*)(buf + (size & ~3));
-		}
-
 		// check int-sized chunks
+		e = (u_int32_t*)(buf + (size & ~3));
 		for(p = (u_int32_t*)buf; p < e; p++) {
 			// Using the RNG doubles the runtime for large data sets on my
 			// system.  118MB takes 0.977 sec w/o, and 1.874 sec with.
@@ -130,7 +133,11 @@ void check_data(int fd, size_t incnt)
 
 		count += size;
 		if(count > incnt) {
-			fprintf(stderr, "Too much input: expected only %d bytes.\n", incnt);
+			fprintf(stderr, "Too much input: expected only %d bytes, got %s%d bytes.\n", incnt, feof ? "" : "at least", count);
+			if(opt_verbose) {
+				fprintf(stderr, "Garbage: \n");
+				// todo...  grab code from rewrite project?
+			}
 			exit(3);
 		}
 	} while(!feof);
