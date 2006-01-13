@@ -2,7 +2,8 @@
 # Scott Bronson
 # 4 Nov 2004
 
-disabled: yes, until sending can be debugged.
+# This test is like 40-Transfer except that it names the directory
+# to save to on the command line.
 
 rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
 
@@ -11,8 +12,8 @@ mkfifo /tmp/tmtest-zmodem-pipe
 randfile --seed=1 --size=512 > /tmp/tmtest-zmodem-data
 
 # sz outputs sometimes outputs a ^M on stderr so we need to just discard it.
-rzh -s /tmp/tmtest-zmodem-data < /tmp/tmtest-zmodem-pipe | \
-	(cd /tmp/tmtest-zmodem && exec rzh -r > /tmp/tmtest-zmodem-pipe)
+sz -q /tmp/tmtest-zmodem-data 2>/dev/null < /tmp/tmtest-zmodem-pipe | \
+	rzh -rq /tmp/tmtest-zmodem > /tmp/tmtest-zmodem-pipe
 
 randfile --seed=1 --size=512 --check < /tmp/tmtest-zmodem/tmtest-zmodem-data
 
