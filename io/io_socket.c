@@ -40,6 +40,54 @@ static int set_nonblock(int sd)
 }
 
 
+/** Like io_socket_connect() except it doesn't create the atom, only
+ *  the fd.  You can then pass the fd to io_atom_init and io_add later.
+ *  @returns the new socket fd (>=0) or the error (<0) if unsuccessful.
+ */
+
+int io_socket_connect_fd(socket_addr remote)
+{
+    struct sockaddr_in sa;
+    int err;
+	int fd;
+    
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if(fd < 0) {
+		return fd;
+    }
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sin_family = AF_INET;
+	sa.sin_addr.s_addr = htonl(INADDR_ANY);
+	sa.sin_port = htons(0);
+    
+	err = bind(fd, (struct sockaddr*)&sa, sizeof(sa));
+	if(err < 0) {
+		goto bail;
+	}
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sin_family = AF_INET;
+    sa.sin_addr = remote.addr;
+    sa.sin_port = htons(remote.port);
+    
+    err = connect(fd, (struct sockaddr*)&sa, sizeof(sa));
+    if(err < 0) {
+		goto bail;
+    }
+    
+    if(set_nonblock(fd) < 0) {
+		goto bail;
+    }
+
+	return fd;
+
+bail:
+	close(fd);
+	return -1;
+}
+
+
 /** Creates an outgoing connection.
  *
  * @param io An uninitialized io_atom.  This call will fill it all in.
@@ -56,37 +104,12 @@ static int set_nonblock(int sd)
 
 int io_socket_connect(io_atom *io, io_proc proc, socket_addr remote, int flags)
 {   
-    struct sockaddr_in sa;
-    int err;
-    
-    io->fd = socket(AF_INET, SOCK_STREAM, 0);
-    if(io->fd < 0) {
-		return io->fd;
-    }
+	int err;
 
-	memset(&sa, 0, sizeof(sa));
-	sa.sin_family = AF_INET;
-	sa.sin_addr.s_addr = htonl(INADDR_ANY);
-	sa.sin_port = htons(0);
-    
-	err = bind(io->fd, (struct sockaddr*)&sa, sizeof(sa));
-	if(err < 0) {
-		goto bail;
+	io->fd = io_socket_connect_fd(remote);
+	if(io->fd < 0) {
+		return -1;
 	}
-
-    memset(&sa, 0, sizeof(sa));
-    sa.sin_family = AF_INET;
-    sa.sin_addr = remote.addr;
-    sa.sin_port = htons(remote.port);
-    
-    err = connect(io->fd, (struct sockaddr*)&sa, sizeof(sa));
-    if(err < 0) {
-		goto bail;
-    }
-    
-    if(set_nonblock(io->fd) < 0) {
-		goto bail;
-    }
 
 	io->proc = proc;
     err = io_add(io, flags);
@@ -270,5 +293,91 @@ int io_socket_read(io_atom *io, char *buf, size_t cnt, size_t *readlen)
         // there's some sort of error on this socket.
         return errno ? errno : -1;
     }
+}
+
+
+/** 
+ * Converts a string into an integer.  Unlinke the standard C routines,
+ * this routine returns an error if the conversion fails.
+ * @returns 1 if the conversion was successful, 0 if not.
+ */
+
+int io_safe_atoi(const char *str, int *num)
+{
+	char *remainder;
+
+	if(*str == '\0') {
+		// blank string (strtol would parse this as "0").
+		return 0;
+	}
+
+	errno = 0;
+	*num = strtol(str, &remainder, 10);
+	if(errno) {
+		return 0;
+	}
+
+	if(*remainder != '\0') {
+		return 0;
+	}
+
+	return 1;
+}
+
+
+/** Parses a string to an address suitable for use with io_socket.
+ *  Accepts "1.1.1.1:22", "1.1.1.1" (default port), and "22" (default
+ *  address).
+ *
+ *  If the string doesn't specify either an address or a port then the
+ *  original contents of the sock variable remain unchanged.
+ *
+ *  @returns NULL if no error, or an error string if an error was
+ *  discovered.
+ */
+
+char* io_socket_parse(const char *spec, socket_addr *sock)
+{
+	char buf[128];
+	const char *colon;
+	int i;
+
+	/* If it contains ':' then both an address and a port. */
+	colon = strchr(spec, ':');
+	if(colon) {
+		if(colon - spec > sizeof(buf)-1) {
+			return "Address is too long: \"%s\"";
+		}
+		// copy the address portion to a separate buffer
+		memcpy(buf, spec, colon-spec);
+		buf[colon-spec]='\0';
+
+		// address is in buf
+		if(!inet_aton(buf, &sock->addr)) {
+			return "Invalid address specified: \"%s\"";
+		}
+
+		// port is at colon+1
+		spec = colon+1;
+	} else if(strchr(spec, '.')) {
+		// address is in spec
+		if(!inet_aton(spec, &sock->addr)) {
+			return "Invalid address specified: \"%s\"";
+		}
+		// and no port
+		return NULL;
+	}
+
+	// port is in spec.  Spec may be empty, in which case
+	// we need to be sure to not modify port.
+	if(spec[0]) {
+		if(io_safe_atoi(spec, &i)) {
+			sock->port = i;
+		} else {
+			return "Invalid port specified";
+		}
+	}
+
+	return NULL;
 }
 

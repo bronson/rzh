@@ -23,7 +23,7 @@
 
 #include "log.h"
 #include "fifo.h"
-#include "io/io.h"
+#include "io/io_socket.h"
 #include "pipe.h"
 #include "task.h"
 #include "cmd.h"
@@ -36,6 +36,7 @@ static int verbosity = 0;			// print notification/debug messages
 int opt_quiet = 0;					// suppress status messages
 const char *download_dir = NULL;	// download files to this directory
 static jmp_buf g_bail;
+socket_addr conn_addr;
 
 
 #if !defined(PATH_MAX)
@@ -232,11 +233,13 @@ static void usage()
 static void process_args(int argc, char **argv)
 {
 	volatile int bk = 0;
+	char *fmt;
 
 	enum {
 		LOG_LEVEL = CHAR_MAX + 1,
 		RZ_CMD,
 		SHELL_CMD,
+		CONNECT_CMD,
 	};
 
 	while(1) {
@@ -251,6 +254,7 @@ static void process_args(int argc, char **argv)
 			{"quiet", 0, 0, 'q'},
 			{"rz", 1, 0, RZ_CMD},
 			{"shell", 1, 0, SHELL_CMD},
+			{"connect", 1, 0, CONNECT_CMD},
 			{"verbose", 0, 0, 'v'},
 			{"version", 0, 0, 'V'},
 			{0, 0, 0, 0},
@@ -293,6 +297,14 @@ static void process_args(int argc, char **argv)
 				cmd_parse(&shellcmd, optarg);
 				break;
 
+			case CONNECT_CMD:
+				fmt = io_socket_parse(optarg, &conn_addr);
+				if(fmt != 0) {
+					fprintf(stderr, fmt, optarg);
+					exit(argument_error);
+				}
+				break;
+
 			case 'v':
 				verbosity++;
 				break;
@@ -331,6 +343,7 @@ static void process_args(int argc, char **argv)
 int main(int argc, char **argv)
 {
 	int val;
+	int sock = -1;
 	master_pipe *mp;
 
 	// helps verify we're not leaking filehandles to the kid.
@@ -347,17 +360,30 @@ int main(int argc, char **argv)
 
 	cmd_init(&rzcmd);
 	cmd_init(&shellcmd);
+	conn_addr.addr.s_addr = inet_addr("127.0.0.1");
+	conn_addr.port = 0;
 
 	process_args(argc, argv);
 
 	if(rzcmd.path == NULL) {
+		// if user didn't specify the rzcmd to use, load default
 		cmd_parse(&rzcmd, DEFAULT_RZ_COMMAND);
+	}
+
+	if(conn_addr.port > 0) {
+		// user wants to connect to a socket instead of a tty (for testing).
+		sock = io_socket_connect_fd(conn_addr);
+		if(sock < 0) {
+			fprintf(stderr, "Could not connect to %s:%d: %s\n",
+				inet_ntoa(conn_addr.addr), conn_addr.port, strerror(errno));
+			exit(runtime_error);
+		}
 	}
 
 	val = setjmp(g_bail);
 	if(val == 0) {
 		preflight();
-		mp = master_setup();
+		mp = master_setup(sock);
 		task_install(mp, echo_scanner_create_spec(mp));
 		for(;;) {
 			// main loop, only ends through longjmp
@@ -380,6 +406,10 @@ int main(int argc, char **argv)
 		// exactly the same: verify everything has been shut down properly.
 		rzh_fork_prepare();
 		io_exit_check();
+	}
+
+	if(sock >= 0) {
+		close(sock);
 	}
 
 	cmd_free(&rzcmd);

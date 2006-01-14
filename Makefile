@@ -7,7 +7,7 @@ VERSION=0.7
 CSRC=bgio.c echo.c fifo.c log.c idle.c master.c pipe.c cmd.c \
 	rztask.c task.c util.c zfin.c zrq.c
 CHDR:=$(CSRC:.c=.h)
-CSRC+=rzh.c io/io_select.c 
+CSRC+=rzh.c io/io_select.c io/io_socket.c
 
 COPTS+=-DVERSION=$(VERSION)
 COPTS+=-Wall -Werror

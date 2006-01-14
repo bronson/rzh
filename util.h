@@ -16,10 +16,9 @@ int chdir_to_dldir();
 
 enum {
 	argument_error=1,
-	chdir_error=2,
+	runtime_error=2,
 	fork_error1=5,
 	fork_error2=6,
 	fork_error3=7,
-	process_error=10,
 };
 

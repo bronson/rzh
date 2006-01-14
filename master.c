@@ -74,8 +74,10 @@ static void master_pipe_destructor(master_pipe *mp, int free_mem)
 	master_pipe_default_destructor(mp, free_mem);
 
 	if(free_mem) {
-		bgio_stop(bgio);
-		free(bgio);
+		if(bgio) {
+			bgio_stop(bgio);
+			free(bgio);
+		}
 
 		// When we're done destroying the pipe, bail with no error.
 		if(!opt_quiet) {
@@ -88,14 +90,20 @@ static void master_pipe_destructor(master_pipe *mp, int free_mem)
 	}
 
 	// we're only forking so only close the files.
-	close(bgio->master);
-	close(bgio->slave);
+	if(bgio) {
+		close(bgio->master);
+		close(bgio->slave);
+	}
 }
 
 
 static void master_terminate(master_pipe *mp)
 {
 	bgio_state *bgio = mp->refcon;
+	if(!bgio) {
+		return;
+	}
+
 	kill(bgio->child_pid, SIGTERM);
 }
 
@@ -103,6 +111,9 @@ static void master_terminate(master_pipe *mp)
 static void master_pipe_sigchild(master_pipe *mp, int pid)
 {
 	bgio_state *bgio = mp->refcon;
+	if(!bgio) {
+		return;
+	}
 
 	if(pid == bgio->child_pid) {
 		// Kill off all tasks.  The removal of the last task will
@@ -140,14 +151,20 @@ static bgio_state* master_start_bgio()
 }
 
 
-master_pipe* master_setup()
+master_pipe* master_setup(int sockfd)
 {
 	master_pipe *mp;
-	bgio_state *bgio;
+	bgio_state *bgio = NULL;
 
-	bgio = master_start_bgio();
+	if(sockfd < 0) {
+		// no socket, so open a tty
+		bgio = master_start_bgio();
+		mp = master_pipe_init(bgio->master);
+	} else {
+		// we were given a socket so use that
+		mp = master_pipe_init(sockfd);
+	}
 
-	mp = master_pipe_init(bgio->master);
 	if(mp == NULL) {
 		perror("allocating master pipe");
 		bail(49);
@@ -167,6 +184,6 @@ master_pipe* master_setup()
 int master_get_window_width(master_pipe *mp)
 {
 	bgio_state *bgio = mp->refcon;
-	return bgio->window.ws_col;
+	return bgio ? bgio->window.ws_col : 80;
 }
 
