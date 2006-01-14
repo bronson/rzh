@@ -2,7 +2,8 @@
  * 12 Jan 2006
  * Scott Bronson
  *
- * Code used to specify an alternative rz command on the cmdline.
+ * Code used to parse commands out of the command line.
+ * (i.e. 'rzh --rz="lrz --disable-timeout"').
  */
 
 
@@ -10,21 +11,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 
-#include "rzcmd.h"
-
-
-const char *cmd_name;		// name of rz utility (argv[0])
-const char *cmd_exec;		// executable of rz utility
-const char **cmd_args;		// arguments to pass to rz utility
-
+#include "cmd.h"
 
 
 // Calls the given function once for each individual token found
 // in the given string.  Right now this routine doesn't handle
 // quoting or backslashing though ideally it should.
 
-static int for_tokens(const char *cp, void (*proc)(int tokno, const char *str, int len))
+static int for_tokens(command *cmd, const char *cp, void (*proc)(command *cmd, int tokno, const char *str, int len))
 {
 	const char *tok;
 	int cnt = 0;
@@ -47,7 +43,7 @@ static int for_tokens(const char *cp, void (*proc)(int tokno, const char *str, i
 
 		// we have a token, send it to the proc
 		if(proc) {
-			(*proc)(cnt, tok, cp-tok);
+			(*proc)(cmd, cnt, tok, cp-tok);
 		}
 		cnt += 1;
 	}
@@ -58,20 +54,17 @@ static int for_tokens(const char *cp, void (*proc)(int tokno, const char *str, i
 
 // Parses the command name ("ls") out of the executable path ("/bin/ls").
 
-static void cmd_name_from_exec()
+static char* cmd_name_from_path(const char *path)
 {
-	const char *name = (const char*)strrchr(cmd_exec, '/');
+	const char *name = (const char*)strrchr(path, '/');
+
 	if(name == NULL) {
-		name = cmd_exec;
+		name = path;
 	} else {
 		name += 1;	// skip the slash
 	}
 
-	if(cmd_name) {
-		free((void*)cmd_name);
-	}
-
-	cmd_name = strdup(name);
+	return strdup(name);
 }
 
 
@@ -93,13 +86,13 @@ static char* my_strndup(const char *str, int len)
 
 // Stores the given token into the pre-allocated argument list.
 
-static void store_proc(int tokno, const char *str, int len)
+static void store_proc(command *cmd, int tokno, const char *str, int len)
 {
-	cmd_args[tokno] = my_strndup(str, len);
+	cmd->args[tokno+1] = my_strndup(str, len);
 }
 
 
-void parse_rz_cmd(const char *str)
+void cmd_parse(command *cmd, const char *str)
 {
 	const char *cp = str;
 	int cnt;
@@ -123,50 +116,54 @@ void parse_rz_cmd(const char *str)
 	while(*cp != '\0' && !isspace(*cp)) {
 		cp += 1;
 	}
-	
-	free((void*)cmd_exec);
-	cmd_exec = my_strndup(str, cp-str);
-	cmd_name_from_exec();
 
-	cnt = for_tokens(cp, NULL);
-	free(cmd_args);
-	cmd_args = malloc((cnt+1) * sizeof(char*));
-	for_tokens(cp, store_proc);
-	cmd_args[cnt] = NULL;
+	cmd_free(cmd);
+	cmd->path = my_strndup(str, cp-str);
+
+	cnt = for_tokens(cmd, cp, NULL);
+	cnt += 2;	// space for argv[0] and the NULL terminator
+	cmd->args = malloc(cnt * sizeof(char*));
+
+	cmd->args[0] = cmd_name_from_path(cmd->path);
+	if(for_tokens(cmd, cp, store_proc) != cnt-2) {
+		assert(!"counts didn't match!");
+	}
+	cmd->args[cnt-1] = NULL;
 }
 
 
-void print_rz_cmd()
+void cmd_print(command *cmd)
 {
 	int i;
 
-	printf("receive command: ('%s', '%s'", cmd_exec, cmd_name);
-	for(i=0; cmd_args[i] != NULL; i++) {
-		printf(", '%s'", cmd_args[i]);
+	printf("receive command: ('%s': ", cmd->path);
+	for(i=0; cmd->args[i] != NULL; i++) {
+		printf(", '%s'", cmd->args[i]);
 	}
 	printf(")\n");
 }
 
 
-void init_rz_cmd()
+void cmd_init(command *cmd)
 {
-	// initialize the command we'll use to receive the zmodem.
-	cmd_exec = strdup("/usr/bin/rz");
-	cmd_name_from_exec();
-	cmd_args = malloc(sizeof(char*));
-	cmd_args[0] = NULL;
+	cmd->path = NULL;
+	cmd->args = NULL;
 }
 
 
-void free_rz_cmd()
+void cmd_free(command *cmd)
 {
 	int i;
 
-	free((void*)cmd_exec);
-	free((void*)cmd_name);
-	for(i=0; cmd_args[i] != NULL; i++) {
-		free((void*)cmd_args[i]);
+	if(cmd->path) {
+		free(cmd->path);
 	}
-	free((void*)cmd_args);
+
+	if(cmd->args) {
+		for(i=0; cmd->args[i] != NULL; i++) {
+			free((void*)cmd->args[i]);
+		}
+		free(cmd->args);
+	}
 }
 

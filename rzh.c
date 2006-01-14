@@ -26,7 +26,7 @@
 #include "io/io.h"
 #include "pipe.h"
 #include "task.h"
-#include "rzcmd.h"
+#include "cmd.h"
 #include "echo.h"
 #include "master.h"
 #include "util.h"
@@ -41,6 +41,10 @@ static jmp_buf g_bail;
 #if !defined(PATH_MAX)
 #define PATH_MAX 4096
 #endif
+
+// the command that gets run when we try to receive a file
+// (override this using the --rz command-line option)
+#define DEFAULT_RZ_COMMAND "/usr/bin/rz"
 
 #define xstringify(x) #x
 #define stringify(x) xstringify(x)
@@ -181,20 +185,20 @@ static void preflight()
 	}
 
 	// check the rz executable
-	if(stat(cmd_exec, &st) != 0) {
-		fprintf(stderr, "Could not stat receive program \"%s\": %s\n", cmd_exec, strerror(errno));
+	if(stat(rzcmd.path, &st) != 0) {
+		fprintf(stderr, "Could not stat receive program \"%s\": %s\n", rzcmd.path, strerror(errno));
 		preabort(70);
 	}
 	if(!S_ISREG(st.st_mode)) {
-		fprintf(stderr, "Error: receive program \"%s\" is not a regular file!\n", cmd_exec);
+		fprintf(stderr, "Error: receive program \"%s\" is not a regular file!\n", rzcmd.path);
 		preabort(71);
 	}
 	if(!i_have_permission(&st, CAN_READ)) {
-		fprintf(stderr, "Error: can't read receive program \"%s\"!\n", cmd_exec);
+		fprintf(stderr, "Error: can't read receive program \"%s\"!\n", rzcmd.path);
 		preabort(72);
 	}
 	if(!i_have_permission(&st, CAN_EXECUTE)) {
-		fprintf(stderr, "Error: can't execute receive program \"%s\"!\n", cmd_exec);
+		fprintf(stderr, "Error: can't execute receive program \"%s\"!\n", rzcmd.path);
 		preabort(73);
 	}
 
@@ -232,6 +236,7 @@ static void process_args(int argc, char **argv)
 	enum {
 		LOG_LEVEL = CHAR_MAX + 1,
 		RZ_CMD,
+		SHELL_CMD,
 	};
 
 	while(1) {
@@ -245,6 +250,7 @@ static void process_args(int argc, char **argv)
 			{"log-level", 1, 0, LOG_LEVEL},
 			{"quiet", 0, 0, 'q'},
 			{"rz", 1, 0, RZ_CMD},
+			{"shell", 1, 0, SHELL_CMD},
 			{"verbose", 0, 0, 'v'},
 			{"version", 0, 0, 'V'},
 			{0, 0, 0, 0},
@@ -275,12 +281,16 @@ static void process_args(int argc, char **argv)
 				}
 				break;
 
-			case RZ_CMD:
-				parse_rz_cmd(optarg);
-				break;
-
 			case 'q':
 				opt_quiet++;
+				break;
+
+			case RZ_CMD:
+				cmd_parse(&rzcmd, optarg);
+				break;
+
+			case SHELL_CMD:
+				cmd_parse(&shellcmd, optarg);
 				break;
 
 			case 'v':
@@ -313,7 +323,7 @@ static void process_args(int argc, char **argv)
 	}
 
 	if(verbosity) {
-		print_rz_cmd();
+		cmd_print(&rzcmd);
 	}
 }
 
@@ -322,8 +332,6 @@ int main(int argc, char **argv)
 {
 	int val;
 	master_pipe *mp;
-
-	init_rz_cmd();
 
 	// helps verify we're not leaking filehandles to the kid.
 	// (this would be a security risk if any of the filehandles
@@ -337,7 +345,14 @@ int main(int argc, char **argv)
 	// fd-based select scheme, though, it may be an issue.
 	io_init();
 
+	cmd_init(&rzcmd);
+	cmd_init(&shellcmd);
+
 	process_args(argc, argv);
+
+	if(rzcmd.path == NULL) {
+		cmd_parse(&rzcmd, DEFAULT_RZ_COMMAND);
+	}
 
 	val = setjmp(g_bail);
 	if(val == 0) {
@@ -367,7 +382,8 @@ int main(int argc, char **argv)
 		io_exit_check();
 	}
 
-	free_rz_cmd();
+	cmd_free(&rzcmd);
+	cmd_free(&shellcmd);
 
 	exit(val);
 }

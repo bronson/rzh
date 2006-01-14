@@ -4,7 +4,7 @@
 
 VERSION=0.7
 
-CSRC=bgio.c echo.c fifo.c log.c idle.c master.c pipe.c rzcmd.c \
+CSRC=bgio.c echo.c fifo.c log.c idle.c master.c pipe.c cmd.c \
 	rztask.c task.c util.c zfin.c zrq.c
 CHDR:=$(CSRC:.c=.h)
 CSRC+=rzh.c io/io_select.c 

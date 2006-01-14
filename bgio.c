@@ -24,7 +24,11 @@
 
 #include "bgio.h"
 #include "log.h"
+#include "cmd.h"
 #include "util.h"
+
+
+command shellcmd;
 
 
 bgio_state *g_state;	// this sucks.  it's for the signals.
@@ -56,7 +60,11 @@ static void do_child(bgio_state *state, const char *cmd)
 
 	shell = getenv("SHELL");
 	if(!shell) {
-		shell = _PATH_BSHELL;	// should be defined by stdlib.
+#ifdef _PATH_BSHELL
+		shell = _PATH_BSHELL;
+#else
+		shell = "/bin/sh";
+#endif
 	}
 
 	name = strrchr(shell, '/');

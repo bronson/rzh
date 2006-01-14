@@ -15,6 +15,7 @@
 #include "log.h"
 #include "fifo.h"
 #include "io/io.h"
+#include "cmd.h"
 #include "pipe.h"
 #include "task.h"
 #include "rztask.h"
@@ -23,6 +24,8 @@
 #include "zfin.h"
 #include "idle.h"
 
+
+command rzcmd;	// specifies the rz executable we should run.
 
 
 static void parse_typing(const char *buf, int len, void *refcon)
@@ -212,8 +215,7 @@ static void fork_rz_process(master_pipe *mp, int outfds[3], int *child_pid)
 		rzh_fork_prepare();
 		io_exit_check();
 
-		execl(cmd_exec, "rz", "--disable-timeouts", NULL);
-//		execl("/usr/bin/rz", "rz", 0);
+		execv(rzcmd.path, rzcmd.args);
 		fprintf(stderr, "Could not exec /usr/bin/rz: %s\n",
 				strerror(errno));
 		exit(89);
