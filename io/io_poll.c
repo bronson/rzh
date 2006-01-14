@@ -1,5 +1,7 @@
 // poll.c
 // Scott Bronson
+//
+// Uses poll to satisfy gatekeeper's network I/O
 
 #include <sys/poll.h>
 

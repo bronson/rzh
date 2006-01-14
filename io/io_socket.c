@@ -1,7 +1,7 @@
 /** @file io_socket.c
  *
- * This is actually a layer that adds sockets to whatever underlying io
- * layer you decide to use.
+ * This file adds socket functionality to whatever underlying io
+ * layer you decide to use (io_epoll, io_select, etc).
  */
 
 #include <stdlib.h>
@@ -54,12 +54,11 @@ static int set_nonblock(int sd)
  * If there was an error, you should find the reason in strerror.
  */
 
-int io_socket_connect(io_atom *io, struct in_addr addr, int port, io_proc proc, int flags)
+int io_socket_connect(io_atom *io, io_proc proc, socket_addr remote, int flags)
 {   
     struct sockaddr_in sa;
     int err;
     
-	io->proc = proc;
     io->fd = socket(AF_INET, SOCK_STREAM, 0);
     if(io->fd < 0) {
 		return io->fd;
@@ -77,8 +76,8 @@ int io_socket_connect(io_atom *io, struct in_addr addr, int port, io_proc proc, 
 
     memset(&sa, 0, sizeof(sa));
     sa.sin_family = AF_INET;
-    sa.sin_port = htons(port);
-    sa.sin_addr = addr;
+    sa.sin_addr = remote.addr;
+    sa.sin_port = htons(remote.port);
     
     err = connect(io->fd, (struct sockaddr*)&sa, sizeof(sa));
     if(err < 0) {
@@ -89,6 +88,7 @@ int io_socket_connect(io_atom *io, struct in_addr addr, int port, io_proc proc, 
 		goto bail;
     }
 
+	io->proc = proc;
     err = io_add(io, flags);
     if(err < 0) {
 		goto bail;
@@ -123,22 +123,21 @@ bail:
  * there was an error.
  */
 
-int io_socket_accept(io_atom *io, struct in_addr *remoteaddr, int *remoteport)
+int io_socket_accept(io_atom *io, io_proc proc, int flags, io_atom *listener, socket_addr *remote)
 {
     struct sockaddr_in pin;
     socklen_t plen;
-    int sd;
+	int err;
 
     plen = sizeof(pin);
-    while((sd = accept(io->fd, (struct sockaddr*)&pin, &plen)) < 0) {
+    while((io->fd = accept(listener->fd, (struct sockaddr*)&pin, &plen)) < 0) {
         if(errno == EINTR) {
             // This call was interrupted by a signal.  Try again and
             // see if we receive a connection.
             continue;
         }
         if(errno == EAGAIN || errno == EWOULDBLOCK) {
-            // socket is marked nonblocking but no pending connections
-            // are present.  Weird.  I guess we should succeed but do nothing.
+            // No pending connections are present (socket is nonblocking).
             return -1;
         }
 
@@ -148,19 +147,24 @@ int io_socket_accept(io_atom *io, struct in_addr *remoteaddr, int *remoteport)
     }
 
     // Excellent.  We managed to connect to the remote socket.
-    if(set_nonblock(sd) < 0) {
-        close(sd);
+    if(set_nonblock(io->fd) < 0) {
+        close(io->fd);
         return -1;
     }
 
-    if(remoteaddr) {
-        *remoteaddr = pin.sin_addr;
-    }
-    if(remoteport) {
-        *remoteport = (int)ntohs(pin.sin_port);
+	io->proc = proc;
+    err = io_add(io, flags);
+    if(err < 0) {
+        close(io->fd);
+        return -1;
     }
 
-    return sd;
+    if(remote) {
+        remote->addr = pin.sin_addr;
+        remote->port = (int)ntohs(pin.sin_port);
+    }
+
+    return io->fd;
 }
 
 
@@ -177,41 +181,39 @@ int io_socket_accept(io_atom *io, struct in_addr *remoteaddr, int *remoteport)
  * Call io_socket_close() to stop listening on the socket.
  */
 
-int io_socket_listen(io_atom *io, io_proc proc, struct in_addr addr, int port)
+int io_socket_listen(io_atom *io, io_proc proc, socket_addr local)
 {
-    int sd;
     struct sockaddr_in sin;
 
-    if((sd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if((io->fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		return -1;
     }
 
-    if(set_nonblock(sd) < 0) {
-        close(sd);
+    if(set_nonblock(io->fd) < 0) {
+        close(io->fd);
 		return -1;
     }
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
-    sin.sin_port = htons(port);
-    sin.sin_addr = addr;
+    sin.sin_addr = local.addr;
+    sin.sin_port = htons(local.port);
 
-    if(bind(sd, (struct sockaddr*)&sin, sizeof(sin)) < 0) {
-        close(sd);
+    if(bind(io->fd, (struct sockaddr*)&sin, sizeof(sin)) < 0) {
+        close(io->fd);
 		return -1;
     }
 
     // NOTE: if we're dropping connection requests under load, we
     // may need to tune the second parameter to listen.
-    if (listen(sd, STD_LISTEN_SIZE) == -1) {
-        close(sd);
+    if (listen(io->fd, STD_LISTEN_SIZE) == -1) {
+        close(io->fd);
 		return -1;
     }
 
     io->proc = proc;
-    io->fd = sd;
     if(io_add(io, IO_READ) < 0) {
-        close(sd);
+        close(io->fd);
 		return -1;
     }
 
@@ -228,7 +230,10 @@ void io_socket_close(io_atom *io)
 
 
 /** Reads from the given io_atom in response to an IO_READ event.
- * Meant for use by sockets.
+ *
+ * While this was written for use by sockets there should be nothing
+ * that prevents its use for regular read operations.  This routine
+ * should probably be moved into io.c...?
  *
  * @param readlen returns the number of bytes you need to process.
  * If readlen is nonzero, then error is guaranteed to be 0.

@@ -203,6 +203,7 @@ int io_wait(unsigned int timeout)
 {
 	struct timeval tv;
 	struct timeval *tvp = &tv;
+	int ret;
 
 	if(timeout == MAXINT) {
 		tvp = NULL;
@@ -215,7 +216,11 @@ int io_wait(unsigned int timeout)
 	gfd_write = fd_write;
 	gfd_except = fd_except;
 
-	return select(1+max_fd, &gfd_read, &gfd_write, &gfd_except, tvp);
+	do {
+		ret = select(1+max_fd, &gfd_read, &gfd_write, &gfd_except, tvp);
+	} while(ret < 0 && errno == EINTR);
+
+	return ret;
 }
 
 

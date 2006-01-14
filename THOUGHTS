@@ -64,3 +64,56 @@ When we recognize a ZFIN from the master:
 		So, what we do, we store all data read from the master AFTER the ZFIN/OO
 		Then, when the pipes are restored, the data is written back into the pipe.
 
+
+
+
+Assembly
+--------
+
+MASTER
+Our side of the tty connection.
+
+SLAVE
+The remote side of the tty.  The shell that we spawn to handle all
+further user interaction runs on the slave.
+
+FIFO
+The basic unit is the FIFO.  It's pretty much a place that can handle
+different buffering between reads and writes.  You read as much data
+as you can into the fifo, process it, then write it back out.  Or,
+you write data into the fifo, then read it back out.  Depends on your
+perspective.
+
+PIPE
+A pipe is simply a single FIFO with endpoints (data sources or sinks).
+The endpoints are called "atoms" (from io_atoms, the async io lib).
+It moves data in one diraction, from an input, through some processing
+steps, to an output.  Pipes should handle flow control so if a write
+stops listening, we can stall the pipe until room opens up again (this
+works in theory but it sure hasn't been rigorously tested).
+
+PIPE_ATOM
+A pipe_atom connects one end of a pipe to an io_atom data source
+or sink.  Pipes contain two atoms, a read atom and a write atom.
+These atoms can be retargeted at almost any time.  Therefore, you
+can resplice pipes in an operating pipeline.
+
+MASTER_PIPE
+This controls sending and receiving data from the master.  A master_pipe
+consists of two pipes, the input pipe and the output pipe.  It also has
+some hooks to handle events, mostly relating to shutting the pipe down.
+
+TASK_SPEC
+A task is a processing step you can lay on top of a pipe.  For instance,
+normally the echo task is copying data from stdin/stdout to the master and
+back.  However, when we notice a zmodem transfer, we launch a rz process
+and insert it as another task on the master pipe.  Thus the rz task
+overrides the echo task.  As soon as the rz is done, the pipe reverts
+back to echoing.  The task_spec specifies all the hooks and i/o points
+for the task.
+
+TASK_STATE
+When a task is started up, its transient state is stored in task_state.
+You shouldn't have to worry about task_states.  Just create a task_spec
+and insert it -- the task_state will be created and destroyed as needed.
+
