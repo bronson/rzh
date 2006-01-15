@@ -15,6 +15,7 @@
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 
 #include "io_socket.h"
@@ -327,7 +328,9 @@ int io_safe_atoi(const char *str, int *num)
 
 /** Parses a string to an address suitable for use with io_socket.
  *  Accepts "1.1.1.1:22", "1.1.1.1" (default port), and "22" (default
- *  address).
+ *  address).  Also accepts "host:22" and "host".  If a hostname consists
+ *  of all numbers (that's an error, right?) the it will be interpreted as
+ *  a port unless you specify it as "222:".  Uses gethostbyname.
  *
  *  If the string doesn't specify either an address or a port then the
  *  original contents of the sock variable remain unchanged.
@@ -338,43 +341,63 @@ int io_safe_atoi(const char *str, int *num)
 
 char* io_socket_parse(const char *spec, socket_addr *sock)
 {
-	char buf[128];
+	char buf[256];
 	const char *colon;
 	int i;
+
+	struct hostent *he;
 
 	/* If it contains ':' then both an address and a port. */
 	colon = strchr(spec, ':');
 	if(colon) {
+		// it's an address:port combination
 		if(colon - spec > sizeof(buf)-1) {
-			return "Address is too long: \"%s\"";
+			return "Address is too long: \"%s\"\n";
 		}
+
 		// copy the address portion to a separate buffer
 		memcpy(buf, spec, colon-spec);
 		buf[colon-spec]='\0';
 
-		// address is in buf
-		if(!inet_aton(buf, &sock->addr)) {
-			return "Invalid address specified: \"%s\"";
-		}
-
 		// port is at colon+1
 		spec = colon+1;
-	} else if(strchr(spec, '.')) {
-		// address is in spec
-		if(!inet_aton(spec, &sock->addr)) {
-			return "Invalid address specified: \"%s\"";
+	} else {
+		// if it parses as a number, it's a lone port and we're done.
+		if(io_safe_atoi(spec, &i)) {
+			sock->port = i;
+			return NULL;
 		}
-		// and no port
-		return NULL;
+
+		// it's a lone address
+		if(strlen(spec) > sizeof(buf)-1) {
+			return "Address is too long: \"%s\"\n";
+		}
+		strcpy(buf, spec);
+		spec = NULL;
+	}
+
+	// address is in buf
+	if(buf[0]) {
+		he = gethostbyname(buf);
+		if(he == NULL) {
+			if(h_errno == HOST_NOT_FOUND) {
+				return "Host not found: \"%s\"\n";
+			}
+			if(h_errno == NO_ADDRESS || h_errno == NO_DATA) {
+				return "No address for host: \"%s\"\n";
+			}
+			return "Error resolving host: \"%s\"\n";
+		}
+		sock->addr = *(struct in_addr*)(he->h_addr_list[0]);
 	}
 
 	// port is in spec.  Spec may be empty, in which case
 	// we need to be sure to not modify port.
-	if(spec[0]) {
+	if(spec && spec[0]) {
 		if(io_safe_atoi(spec, &i)) {
 			sock->port = i;
 		} else {
-			return "Invalid port specified";
+			return "Invalid port specified: \"%s\"\n";
 		}
 	}
 

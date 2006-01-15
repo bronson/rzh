@@ -234,6 +234,7 @@ static void process_args(int argc, char **argv)
 {
 	volatile int bk = 0;
 	char *fmt;
+	int addr_specified = 0;
 
 	enum {
 		LOG_LEVEL = CHAR_MAX + 1,
@@ -298,6 +299,7 @@ static void process_args(int argc, char **argv)
 				break;
 
 			case CONNECT_CMD:
+				addr_specified++;
 				fmt = io_socket_parse(optarg, &conn_addr);
 				if(fmt != 0) {
 					fprintf(stderr, fmt, optarg);
@@ -336,6 +338,11 @@ static void process_args(int argc, char **argv)
 
 	if(verbosity) {
 		cmd_print(&rzcmd);
+	}
+
+	if(addr_specified && conn_addr.port == 0) {
+		fprintf(stderr, "You must specify a port to connect to!\n");
+		exit(argument_error);
 	}
 }
 
