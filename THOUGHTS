@@ -78,11 +78,19 @@ The remote side of the tty.  The shell that we spawn to handle all
 further user interaction runs on the slave.
 
 FIFO
-The basic unit is the FIFO.  It's pretty much a place that can handle
-different buffering between reads and writes.  You read as much data
-as you can into the fifo, process it, then write it back out.  Or,
-you write data into the fifo, then read it back out.  Depends on your
-perspective.
+The basic unit is the FIFO.  It just buffers data between reads and writes.
+You read as much data as you can into the fifo, process it, then write it
+back out.  Or, you write data into the fifo, then read it back out.
+Depends on your perspective.  Fifos include a thing called a read proc.
+If set, then rather than using memcpy to copy data into a fifo, the read
+proc is given the opportunity to search or modify the data.  Read procs
+are used to manipulate the data flowing through the fifo.  All manipulation
+and searching happens on the read, not on the write.
+
+	Come to think of it, because 99% of reads and writes go to exhaustion,
+	There just isn't much need for a fifo.  Instead, we should have a balloon,
+	which starts to inflate when the writer can't manage to keep up.
+	It would be simpler and probably slightly faster than a fifo.
 
 PIPE
 A pipe is simply a single FIFO with endpoints (data sources or sinks).

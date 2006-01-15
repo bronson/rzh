@@ -42,8 +42,8 @@ void log_init(const char *path)
 			perror("opening log file");
 			exit(99);
 		}
-		fprintf(g_logfile, " -=-\n");
-		fprintf(g_logfile, "FD Log: %d\n", fileno(g_logfile));
+		fprintf(g_logfile, " -=-  vi:syn=c\n");
+		fprintf(g_logfile, "open: FD Log: %d\n", fileno(g_logfile));
 		fflush(g_logfile);
 	}
 }

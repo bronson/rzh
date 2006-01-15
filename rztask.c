@@ -102,6 +102,9 @@ static void cherr_proc(io_atom *inatom, int flags)
 	} while(cnt == -1 && errno == EINTR);
 
 	if(cnt > 0) {
+		// TODO: should probably print the stderr to our stderr (right?)
+		// Yes, but need to suppress
+		// 		"rz waiting to receive."
 		log_warn("CHILD STDERR fd=%d: <<<%.*s>>>", atom->atom.fd, cnt, buf);
 	} else if(cnt == 0) {
 		// eof on stderr.
@@ -186,9 +189,9 @@ static void fork_rz_process(master_pipe *mp, int outfds[3], int *child_pid)
 		bail(79);
 	}
 
-	log_dbg("FD chstdin: rd=%d wr=%d", chstdin[0], chstdin[1]);
-	log_dbg("FD chstdout: rd=%d wr=%d", chstdout[0], chstdout[1]);
-	log_dbg("FD chstderr: rd=%d wr=%d", chstderr[0], chstderr[1]);
+	log_info("FD write to rz child stdin: %d", chstdin[1]);
+	log_info("FD read from rz child stdout: %d", chstdout[0]);
+	log_info("FD read from rz child stderr: %d", chstderr[0]);
 
 	pid = fork();
 

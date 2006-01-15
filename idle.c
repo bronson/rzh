@@ -174,7 +174,7 @@ int idle_proc(task_spec *spec)
 	}
 
 
-	log_dbg("Updating display!");
+	log_dbg("updating display");
 
 	idle->call_cnt += 1;
 	idle_get_numbers(spec, &numbers);

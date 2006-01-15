@@ -111,17 +111,17 @@ void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
 			cp = buf;
 			log_dbg("zfin %d resuming string match at %d", fd, ref-zfin);
 		} else {
-			log_dbg("zfin %d searching for *", fd);
+			log_dbg("zfin on %d: searching for '*' in %d bytes", fd, size);
 			cp = memchr(buf, '*', size);
 			if(!cp) {
-				log_dbg("zfin %d not found, returning entire buffer", fd);
+				log_dbg("zfin on %d: '*' not found, returning entire buffer", fd);
 				// couldn't find the start char in the entire buffer.
 				fifo_unsafe_append(f, buf, size);
 				return;
 			}
 
 			// found the start char.  flush all the data up to the start char.
-			log_dbg("zfin %d found.  appending previous %d bytes", fd, cp-buf);
+			log_dbg("zfin on %d: '*' found.  appending previous %d bytes", fd, cp-buf);
 			fifo_unsafe_append(f, buf, cp-buf);
 			size -= cp-buf;
 			buf = cp;
@@ -142,18 +142,18 @@ void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
 		buf = cp;
 
 		if(*ref == 0) {
-			log_info("ZFIN %d found!  appending %d bytes and moving on.", fd, tt);
+			log_info("zfin on %d: found!  appending %d bytes and moving on.", fd, tt);
 			f->proc = state->found;
 			(*f->proc)(f, buf, size, fd);
 			return;
 		} else if(cp >= ce) {
 			// out of data, so we'll return and get called with more
-			log_dbg("zfin %d out of data %d bytes into string.  append %d bytes and return.", fd, ref-zfin, tt);
+			log_dbg("zfin on %d: out of data %d bytes into string.  append %d bytes and return.", fd, ref-zfin, tt);
 			state->ref = ref;
 			return;
 		} else if(*cp != *ref) {
 			// couldn't match.  append what we have so far.
-			log_dbg("zfin %d didn't match at %d.  append %d bytes and start over.", fd, ref-zfin, tt);
+			log_dbg("zfin on %d: didn't match at %d.  append %d bytes and start over.", fd, ref-zfin, tt);
 			ref = NULL;
 		} else {
 			assert(!"This should be unpossible!");
@@ -163,6 +163,7 @@ void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
 
 
 /** No OO: drops an optional OO, then passes the rest to zfinsave */
+// TODO: this doesn't appear to work 100%
 
 void zfin_nooo(struct fifo *f, const char *buf, int size, int fd)
 {

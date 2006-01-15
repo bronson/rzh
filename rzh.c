@@ -37,6 +37,7 @@ int opt_quiet = 0;					// suppress status messages
 const char *download_dir = NULL;	// download files to this directory
 static jmp_buf g_bail;
 socket_addr conn_addr;
+int conn_fd = -1;
 
 
 #if !defined(PATH_MAX)
@@ -69,6 +70,10 @@ void preabort(int val)
 
 void rzh_fork_prepare()
 {
+	if(conn_fd > -1) {
+		close(conn_fd);
+	}
+
 	log_close();
 	io_exit();
 	fdcheck();
@@ -350,7 +355,6 @@ static void process_args(int argc, char **argv)
 int main(int argc, char **argv)
 {
 	int val;
-	int sock = -1;
 	master_pipe *mp;
 
 	// helps verify we're not leaking filehandles to the kid.
@@ -379,18 +383,19 @@ int main(int argc, char **argv)
 
 	if(conn_addr.port > 0) {
 		// user wants to connect to a socket instead of a tty (for testing).
-		sock = io_socket_connect_fd(conn_addr);
-		if(sock < 0) {
+		conn_fd = io_socket_connect_fd(conn_addr);
+		if(conn_fd < 0) {
 			fprintf(stderr, "Could not connect to %s:%d: %s\n",
 				inet_ntoa(conn_addr.addr), conn_addr.port, strerror(errno));
 			exit(runtime_error);
 		}
+		log_info("FD test socket: %d", conn_fd);
 	}
 
 	val = setjmp(g_bail);
 	if(val == 0) {
 		preflight();
-		mp = master_setup(sock);
+		mp = master_setup(conn_fd);
 		task_install(mp, echo_scanner_create_spec(mp));
 		for(;;) {
 			// main loop, only ends through longjmp
@@ -415,8 +420,8 @@ int main(int argc, char **argv)
 		io_exit_check();
 	}
 
-	if(sock >= 0) {
-		close(sock);
+	if(conn_fd >= 0) {
+		close(conn_fd);
 	}
 
 	cmd_free(&rzcmd);

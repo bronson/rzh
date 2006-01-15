@@ -1,10 +1,13 @@
-TODO: preflight: ensure the rzh command is readable and executable by us.
-		and that the dldir exists and is writable.
-TODO: rzh --up, rzh -u, rzhu, or rzu: move up
+TODO: add option to not truncate any data.  maybe shrink buffer though.
+TODO: 	(maybe) add ability to see what rproc copied into the fifo.
+TODO: when we read 0 bytes, we know the socket is closed and should quit.
+		(what happens when we read 0 bytes from the tty?)
 TODO: set up tests
+TODO: rzh --up, rzh -u, rzhu, or rzu: move up
 TODO: move to tmtest 0.9, 0.8 is dead.
 TODO: remove logging code, asserts, strip executable
 TODO: log level and verbosity clash.  which one should I use?
+		(should combine them, use -v as a substitute for --log-level)
 
 
 17 Jun 2005:
@@ -39,12 +42,14 @@ todo: there is a slight chance of deadlock when we're installing a new task.
 	NOTE: this should solve the nested task create / sigchild issue.
 
 TODO: turn off disable timeouts in rz.  Nah, leave em on.  User can always cancel the transfer manually.
-todo: add specifying the rz program to use (-r?)
 todo: add specifying the subshell to use (-c).
 
 todo: need to consolidate the bailage all over the place.
 	Consistent exit codes and stderr/log messages at least.
 
 todo: what happens if I try to clobber a file?
+	(it appears zmodem refuses...  is this smart?)
 todo: there's no way to preserve symlinks, etc.  Maybe use tar
 	to implement an automatic archival mode?
+		Wonder if we could just watch for a tarfile being catted
+		to the console.  Might have to worry about escaping.

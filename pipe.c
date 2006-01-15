@@ -42,10 +42,11 @@ static int pipe_fifo_read(struct pipe *pipe)
 	int cnt = fifo_read(&pipe->fifo, pipe->read_atom->atom.fd);
 	if(cnt == -2) {
 		// File was EOFd.  Close automatically.
-		log_dbg("Got EOF.  Closed %d", pipe->read_atom->atom.fd);
+		log_dbg("Got EOF.  Closed %d.", pipe->read_atom->atom.fd);
 		close(pipe->read_atom->atom.fd);
 		pipe_atom_destroy(pipe->read_atom);
 		pipe->read_atom->atom.fd = -1;
+
 		// TODO: we might want to inform the write_atom that that the read
 		// side of the pipe is closed so it won't get any more data.
 		// OTOH, when it goes to pull data from the fifo, it can notice

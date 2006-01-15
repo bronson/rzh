@@ -169,29 +169,7 @@ const char* sanitize(const char *s, int n)
 }
 
 
-void logrd(int fd, const char *buf, int cnt, int act)
-{
-	int n = act;
-	char *cont = "";
-	const char *bu;
-
-	if(n >= 0) {
-		if(n > 24) {
-			n = 24;
-			cont = "...";
-		}
-
-		bu = sanitize(buf, n);
-		log_info("Read %d bytes from %d: (%d)\t\t<<%s>>%s",
-				act, fd, cnt, bu, cont);
-	} else {
-		log_err("Read error from %d: %d (%s)",
-				fd, errno, strerror(errno));
-	}
-}
-
-
-void logwr(int fd, const char *buf, int cnt, int act)
+void logio(char *gr1, char* gr2, int fd, const char *buf, int cnt, int act)
 {
 	int n = act;
 	char *cont = "";
@@ -202,11 +180,11 @@ void logwr(int fd, const char *buf, int cnt, int act)
 			cont = "...";
 		}
 
-		log_dbg("Write %d bytes to %d: (%d)\t\t<<%s>>%s",
-				act, fd, cnt, sanitize(buf, n), cont);
+		log_info("%s %d bytes %s %d: (%d)\t\t\"%s\"%s",
+				gr1, act, gr2, fd, cnt, sanitize(buf, n), cont);
 	} else {
-		log_err("Write error to %d: %d (%s)",
-				fd, errno, strerror(errno));
+		log_err("%s error from %d: %d (%s)",
+				gr1, fd, errno, strerror(errno));
 	}
 }
 
@@ -222,7 +200,8 @@ void logwr(int fd, const char *buf, int cnt, int act)
  *  reading until we get EAGAIN.
  *
  * TODO: get rid of the copy.
- * TODO: make it resize the fifo if necessary to try to exhaust the read */
+ * TODO: make it resize the fifo if necessary to try to exhaust the read
+ */
 
 int fifo_read(struct fifo *f, int fd)
 {
@@ -242,7 +221,7 @@ int fifo_read(struct fifo *f, int fd)
 		}
 	} while(n == -1 && errno == EINTR);
 
-	logrd(fd, buf, cnt, n);
+	logio("Read", "from", fd, buf, cnt, n);
 	cnt = n;
 
 	if(cnt < 0) {
@@ -265,9 +244,9 @@ int fifo_read(struct fifo *f, int fd)
 			cnt = old - fifo_avail(f);
 		}
 		if(cnt >= 0) {
-			log_dbg("Read proc added %d bytes to fifo for %d.", cnt, fd);
+			log_info("RProc copied %d into %d.", cnt, fd);
 		} else {
-			log_dbg("Read proc returned %d for %d.", cnt, fd);
+			log_err("RProc returned %d for %d.", cnt, fd);
 		}
 	} else {
 		// copy the read data into the buffer
@@ -285,6 +264,8 @@ int fifo_read(struct fifo *f, int fd)
  * @returns the number of bytes written or -1 if there was an error.
  * This routine should never return 0 but I can't guarantee it.
  */
+
+#define logwr(x, y, z, a) logio("Write", "to", x, y, z, a)
 
 int fifo_write(struct fifo *f, int fd)
 {
