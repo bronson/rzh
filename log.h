@@ -8,11 +8,6 @@
 #include <syslog.h>
 #include <stdarg.h>
 
-void log_set_priority(int prio);
-int log_get_priority();
-
-void log_init(const char *file);
-void log_close();
 
 // we only use logerr, logwarn, loginfo, and logdebug.
 #define log_emerg(...) log_msg(LOG_EMERG, __VA_ARGS__)		// 0
@@ -32,6 +27,23 @@ void log_close();
 #define log_debug(...) log_msg(LOG_DEBUG, __VA_ARGS__)
 
 
-int log_msg(int priority, const char *fmt, ...);
-int log_vmsg(int priority, const char *fmt, va_list ap);
+#ifdef NDEBUG
 
+#define log_set_priority(x)
+#define log_get_priority(x) 0
+#define log_init(x)
+#define log_close()
+#define log_msg(x,y,...)
+#define log_vmsg(x,y,...)
+
+#else
+
+void log_set_priority(int prio);
+int log_get_priority();
+
+void log_init(const char *file);
+void log_close();
+void log_msg(int priority, const char *fmt, ...);
+void log_vmsg(int priority, const char *fmt, va_list ap);
+
+#endif

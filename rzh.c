@@ -13,6 +13,7 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -32,7 +33,7 @@
 #include "util.h"
 
 
-static int verbosity = 0;			// print notification/debug messages
+static int opt_verbosity = 0;			// print notification/debug messages
 int opt_quiet = 0;					// suppress status messages
 const char *download_dir = NULL;	// download files to this directory
 static jmp_buf g_bail;
@@ -246,6 +247,8 @@ static void process_args(int argc, char **argv)
 		RZ_CMD,
 		SHELL_CMD,
 		CONNECT_CMD,
+		INMA_FIFO_SIZE,
+		MAOU_FIFO_SIZE,
 	};
 
 	while(1) {
@@ -253,14 +256,16 @@ static void process_args(int argc, char **argv)
 		int optidx = 0;
 		static struct option long_options[] = {
 			// name, has_arg (1=reqd,2=opt), flag, val
+			{"connect", 1, 0, CONNECT_CMD},
 			{"debug-attach", 0, 0, 'D'},
+			{"fifo-inma", 1, 0, INMA_FIFO_SIZE},
+			{"fifo-maout", 1, 0, MAOU_FIFO_SIZE},
 			{"help", 0, 0, 'h'},
 			{"loglevel", 1, 0, LOG_LEVEL},
 			{"log-level", 1, 0, LOG_LEVEL},
 			{"quiet", 0, 0, 'q'},
 			{"rz", 1, 0, RZ_CMD},
 			{"shell", 1, 0, SHELL_CMD},
-			{"connect", 1, 0, CONNECT_CMD},
 			{"verbose", 0, 0, 'v'},
 			{"version", 0, 0, 'V'},
 			{0, 0, 0, 0},
@@ -280,17 +285,46 @@ static void process_args(int argc, char **argv)
 				usage();
 				exit(0);
 
+			// options taking integer arguments
 			case LOG_LEVEL:
-				i = atoi(optarg);
-				if(i>0 && !log_get_priority()) {
-					log_init("/tmp/rzh.log");
+			case INMA_FIFO_SIZE:
+			case MAOU_FIFO_SIZE:
+				if(!io_safe_atoi(optarg, &i)) {
+					fprintf(stderr, "Invalid number: \"%s\"\n", optarg);
+					exit(argument_error);
 				}
-				log_set_priority(i);
-				if(!opt_quiet) {
-					fprintf(stderr, "log level set to %d\n", i);
+
+				switch(c) {
+					case LOG_LEVEL:
+						if(i>0 && !log_get_priority()) {
+							log_init("/tmp/rzh.log");
+						}
+						log_set_priority(i);
+						if(!opt_quiet) {
+							fprintf(stderr, "log level set to %d\n", i);
+						}
+						break;
+
+					case INMA_FIFO_SIZE:
+					case MAOU_FIFO_SIZE:
+						if(i < 0 || i > 1024*1024) {
+							fprintf(stderr, "Value out of range: %d\n", i);
+						}
+						if(c == INMA_FIFO_SIZE) {
+							inma_fifo_size = i;	
+						} else if(c == MAOU_FIFO_SIZE) {
+							maou_fifo_size = i;
+						} else {
+							assert(!"No handler for option");
+						}
+						break;
+
+					default:
+						assert(!"No handler for option");
+
 				}
 				break;
-
+			
 			case 'q':
 				opt_quiet++;
 				break;
@@ -313,7 +347,7 @@ static void process_args(int argc, char **argv)
 				break;
 
 			case 'v':
-				verbosity++;
+				opt_verbosity++;
 				break;
 
 			case 'V':
@@ -341,7 +375,7 @@ static void process_args(int argc, char **argv)
 		exit(argument_error);
 	}
 
-	if(verbosity) {
+	if(opt_verbosity) {
 		cmd_print(&rzcmd);
 	}
 

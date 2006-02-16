@@ -25,6 +25,10 @@
 #include "util.h"
 
 
+int inma_fifo_size = 8192;
+int maou_fifo_size = 8192;
+
+
 /** This uses the spec to set up all the memory and atoms
  *  needed by the task.  It doesn't actually install the task.
  */
@@ -404,8 +408,8 @@ master_pipe* master_pipe_init(int masterfd)
 
 	pipe_atom_init(&mp->master_atom, masterfd);
 
-	pipe_init(&mp->input_master, NULL, &mp->master_atom, 8192);
-	pipe_init(&mp->master_output, &mp->master_atom, NULL, 8192);
+	pipe_init(&mp->input_master, NULL, &mp->master_atom, inma_fifo_size);
+	pipe_init(&mp->master_output, &mp->master_atom, NULL, maou_fifo_size);
 
 	mp->destruct_proc = master_pipe_default_destructor;
 	mp->sigchild_proc = master_pipe_default_sigchild;

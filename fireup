@@ -1,0 +1,20 @@
+#!/usr/bin/perl -w
+
+# Launches sz in server mode, then causes rzh to connect and download
+# the file(s).
+
+
+my $sendfile = 'tt.c';
+my $dstdir = '/tmp';
+my $loglevel = 6;
+
+
+open($sz, "sz --tcp-server $sendfile |");
+while(<$sz>) {
+#	print $_;
+	if(/connect with lrz --tcp-client "([^"]+)"/) {
+#		print "./rzh $dstdir --connect $1 --log-level $loglevel\n";
+		exec "./rzh $dstdir --connect $1 --log-level $loglevel\n";
+	}
+}
+

@@ -169,24 +169,42 @@ const char* sanitize(const char *s, int n)
 }
 
 
+#ifdef NDEBUG
+#define logio(x,y,z,a,b,c)
+#else
 void logio(char *gr1, char* gr2, int fd, const char *buf, int cnt, int act)
 {
-	int n = act;
-	char *cont = "";
+	int n = act, i;
 
 	if(n >= 0) {
-		if(n > 24) {
-			n = 24;
-			cont = "...";
+		// print the first few bytes.
+		i = n;
+		if(i > 16) {
+			i = 16;
+		}
+		n -= i;
+		log_info("%s %d bytes %s %d: (%d)\t\t\"%s\"%s",
+				gr1, act, gr2, fd, cnt, sanitize(buf, i), n>0?"...":"");
+		buf += i;
+
+		// print the rest of the buffer
+		while(n > 0) {
+			i = n;
+			if(i > 64) {
+				i = 64;
+			}
+
+			n -= i;
+			log_info("\t\t\"%s\"%s", sanitize(buf, i), n>0?"...":"");
+			buf += i;
 		}
 
-		log_info("%s %d bytes %s %d: (%d)\t\t\"%s\"%s",
-				gr1, act, gr2, fd, cnt, sanitize(buf, n), cont);
 	} else {
 		log_err("%s error from %d: %d (%s)",
 				gr1, fd, errno, strerror(errno));
 	}
 }
+#endif
 
 
 /** Partially fill the fifo by calling read().

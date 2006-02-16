@@ -59,26 +59,22 @@ void log_close()
 }
 
 
-int log_msg(int prio, const char *fmt, ...)
+void log_msg(int prio, const char *fmt, ...)
 {
 	va_list ap;
-	int ret;
 
     va_start(ap, fmt);
-	ret = log_vmsg(prio, fmt, ap);
+	log_vmsg(prio, fmt, ap);
     va_end(ap);
-
-	return ret;
 }
 
 
-int log_vmsg(int prio, const char *fmt, va_list ap)
+void log_vmsg(int prio, const char *fmt, va_list ap)
 {
 	const char *pre;
-    int ret;
 
 	if(!g_logfile || g_prio < prio) {
-		return 0;
+		return;
 	}
 
 	switch(prio) {
@@ -110,11 +106,9 @@ int log_vmsg(int prio, const char *fmt, va_list ap)
 			pre = "????";
 	}
 
-	ret = fprintf(g_logfile, "%s: ", pre);
-    ret += vfprintf(g_logfile, fmt, ap);
-	ret += fprintf(g_logfile, "\n");
-	fflush(g_logfile);
-
-    return ret;
+	fprintf(g_logfile, "%s: ", pre);
+    vfprintf(g_logfile, fmt, ap);
+	fprintf(g_logfile, "\n");
+	fflush(g_logfile);		// TODO should make this optional
 }
 

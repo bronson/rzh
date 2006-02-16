@@ -88,6 +88,9 @@ typedef struct master_pipe {
 } master_pipe;
 
 
+extern int inma_fifo_size;
+extern int maou_fifo_size;
+
 void task_install(master_pipe *mp, task_spec *spec);
 void task_remove(master_pipe *mp);
 void task_terminate(master_pipe *mp);
