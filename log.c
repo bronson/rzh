@@ -22,6 +22,16 @@ void log_set_priority(int prio)
     // we won't bother to call setlogmask(3) since we'll handle
     // the priorities internally.
 
+	if(prio < 0) {
+		fprintf(stderr, "Ingoring invalid log level %d\n", prio);
+		return;
+	}
+
+	if(prio > 8) {
+		fprintf(stderr, "Maximum log level is 8, setting maximum.\n");
+		prio = 8;
+	}
+
     g_prio = prio;
 }
 
@@ -34,6 +44,10 @@ int log_get_priority()
 
 void log_init(const char *path)
 {
+	if(g_logfile && g_logfile != stderr) {
+		fclose(g_logfile);
+	}
+
 	g_logfile = stderr;
 
 	if(path != NULL) {

@@ -268,7 +268,7 @@ static void process_args(int argc, char **argv)
 			{"shell", 1, 0, SHELL_CMD},
 			{"verbose", 0, 0, 'v'},
 			{"version", 0, 0, 'V'},
-			{0, 0, 0, 0},
+			{0, 0, 0, 0}
 		};
 
 		c = getopt_long(argc, argv, "Dhqrst:vV", long_options, &optidx);
