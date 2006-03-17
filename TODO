@@ -1,0 +1,2 @@
+- Move logio into the log library.  Need a way for non-fifo parts of
+  the code to log buffer contents.  Clean up logio in zrq.c.

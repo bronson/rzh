@@ -145,6 +145,7 @@ static void zscan_start(zscanstate *conn, struct fifo *f, const char *cp, const 
 {
 	int remaining = ce - cp;
 
+	log_info("Draining %d bytes to %d before starting.", fifo_count(f), fd);
 	fifo_drain_completely(f, fd);
 	fifo_unsafe_append_str(f, "**\030B00");
 
@@ -283,6 +284,14 @@ void zrq_scan(zscanstate *conn, const char *cp, const char *ce, struct fifo *f, 
 						if(*cp == '0') {
 							crNext(3);
 							if(*cp == '0') {
+								cp += 1;	// don't use crNext because
+									// we don't care if we're out of data --
+									// the zmodem receive will start anyway.
+								log_info("zrq on %d found!", fd);
+								if(1) {
+								extern void logio(char *gr1, char* gr2, int fd, const char *buf, int cnt, int act);
+								logio("There are", "remaining on", fd, cp, ce-cp, ce-cp);
+								}
 								zscanstate_init(conn);
 								zscan_start(conn, f, cp, ce, fd);
 								return;

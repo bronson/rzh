@@ -33,6 +33,9 @@
 #include "util.h"
 
 
+const char *envname = "RZHDIR";
+
+
 static int opt_verbosity = 0;			// print notification/debug messages
 int opt_quiet = 0;					// suppress status messages
 const char *download_dir = NULL;	// download files to this directory
@@ -142,7 +145,6 @@ static int i_have_permission(const struct stat *st, int op)
 
 static void preflight()
 {
-	static const char *envname = "RZHDIR";
 	struct stat st;
 
 	char buf[PATH_MAX];
@@ -223,11 +225,27 @@ static void preflight()
 }
 
 
+static void get_info()
+{
+	char *s;
+
+	s = getenv(envname);
+	if(s) {
+		printf("rzh is downloading to %s\n", s);
+		exit(0);
+	} else {
+		printf("rzh is not running.\n");
+		exit(1);
+	}
+}
+
+
 static void usage()
 {
 	printf(
 			"Usage: rzh [OPTION]... [DLDIR]\n"
-			"  -v --verbose : increase verbosity.\n"
+/*			"  -v --verbose : increase verbosity.\n"    not very useful */
+			"  -i --info    : tells if rzh is currently running or not.\n"
 			"  -V --version : print the version of this program.\n"
 			"  -h --help    : prints this help text\n"
 			"Run rzh with no arguments to receive files into the current directory.\n"
@@ -261,6 +279,7 @@ static void process_args(int argc, char **argv)
 			{"fifo-inma", 1, 0, INMA_FIFO_SIZE},
 			{"fifo-maout", 1, 0, MAOU_FIFO_SIZE},
 			{"help", 0, 0, 'h'},
+			{"info", 0, 0, 'i'},
 			{"loglevel", 1, 0, LOG_LEVEL},
 			{"log-level", 1, 0, LOG_LEVEL},
 			{"quiet", 0, 0, 'q'},
@@ -271,7 +290,7 @@ static void process_args(int argc, char **argv)
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "Dhqrst:vV", long_options, &optidx);
+		c = getopt_long(argc, argv, "Dhiqrst:vV", long_options, &optidx);
 		if(c == -1) break;
 
 		switch(c) {
@@ -323,6 +342,10 @@ static void process_args(int argc, char **argv)
 						assert(!"No handler for option");
 
 				}
+				break;
+
+			case 'i':
+				get_info();
 				break;
 			
 			case 'q':
@@ -423,7 +446,7 @@ int main(int argc, char **argv)
 				inet_ntoa(conn_addr.addr), conn_addr.port, strerror(errno));
 			exit(runtime_error);
 		}
-		log_info("FD test socket: %d", conn_fd);
+		log_info("New FD for test socket: %d", conn_fd);
 	}
 
 	val = setjmp(g_bail);

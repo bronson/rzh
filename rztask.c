@@ -189,9 +189,9 @@ static void fork_rz_process(master_pipe *mp, int outfds[3], int *child_pid)
 		bail(79);
 	}
 
-	log_info("FD write to rz child stdin: %d", chstdin[1]);
-	log_info("FD read from rz child stdout: %d", chstdout[0]);
-	log_info("FD read from rz child stderr: %d", chstderr[0]);
+	log_info("New FD to write to rz child stdin: %d", chstdin[1]);
+	log_info("New FD to read from rz child stdout: %d", chstdout[0]);
+	log_info("New FD to read from rz child stderr: %d", chstderr[0]);
 
 	pid = fork();
 
@@ -240,6 +240,7 @@ void rztask_install(master_pipe *mp)
 	int fds[3];
 	int child_pid;
 
+	log_info("Forking background rz process, installing task.");
 	fork_rz_process(mp, fds, &child_pid);
 	task_install(mp, rz_create_spec(mp, fds, child_pid));
 }

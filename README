@@ -31,6 +31,8 @@ USAGE
 
 		$ rzh /tmp
 		Saving to /tmp on localhost.
+		$ rzh -i
+		rzh is downloading to /tmp
 		$ sz myfile
 		100 bytes transferred in 0.0 seconds.
 		$ exit
