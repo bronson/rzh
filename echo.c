@@ -43,6 +43,8 @@ static task_spec *echo_create_spec()
 		bail(45);
 	}
 
+	log_dbg("Created echo task spec at 0x%08lX", (long)spec);
+
 	spec->infd = STDIN_FILENO;
 	spec->outfd = STDOUT_FILENO;
 	spec->errfd = -1;	// we'll ignore stderr

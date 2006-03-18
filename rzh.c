@@ -262,6 +262,7 @@ static void process_args(int argc, char **argv)
 
 	enum {
 		LOG_LEVEL = CHAR_MAX + 1,
+		LOG_FILE,
 		RZ_CMD,
 		SHELL_CMD,
 		CONNECT_CMD,
@@ -282,6 +283,8 @@ static void process_args(int argc, char **argv)
 			{"info", 0, 0, 'i'},
 			{"loglevel", 1, 0, LOG_LEVEL},
 			{"log-level", 1, 0, LOG_LEVEL},
+			{"logfile", 1, 0, LOG_FILE},
+			{"log-file", 1, 0, LOG_FILE},
 			{"quiet", 0, 0, 'q'},
 			{"rz", 1, 0, RZ_CMD},
 			{"shell", 1, 0, SHELL_CMD},
@@ -304,6 +307,10 @@ static void process_args(int argc, char **argv)
 				usage();
 				exit(0);
 
+			case LOG_FILE:
+				log_init(optarg);
+				break;
+
 			// options taking integer arguments
 			case LOG_LEVEL:
 			case INMA_FIFO_SIZE:
@@ -315,9 +322,6 @@ static void process_args(int argc, char **argv)
 
 				switch(c) {
 					case LOG_LEVEL:
-						if(i>0 && !log_get_priority()) {
-							log_init("/tmp/rzh.log");
-						}
 						log_set_priority(i);
 						if(!opt_quiet) {
 							fprintf(stderr, "log level set to %d\n", i);
@@ -377,10 +381,8 @@ static void process_args(int argc, char **argv)
 				printf("rzh version %s\n", stringify(VERSION));
 				exit(0);
 
-			case 0:
 			case '?':
-				break;
-
+			case 0:
 			default:
 				exit(argument_error);
 		}
@@ -453,6 +455,7 @@ int main(int argc, char **argv)
 	if(val == 0) {
 		preflight();
 		mp = master_setup(conn_fd);
+		log_dbg("Created master task at 0x%08lX", (long)mp);
 		task_install(mp, echo_scanner_create_spec(mp));
 		for(;;) {
 			// main loop, only ends through longjmp
@@ -478,6 +481,7 @@ int main(int argc, char **argv)
 	}
 
 	if(conn_fd >= 0) {
+		log_info("Close FD %d", conn_fd);
 		close(conn_fd);
 	}
 

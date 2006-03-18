@@ -1,2 +1,11 @@
+FIRST: get some goddamn functional tests.  And some unit tests if at
+all possible.  But why bother writing unit tests when the units are
+all rotten?
+
 - Move logio into the log library.  Need a way for non-fifo parts of
   the code to log buffer contents.  Clean up logio in zrq.c.
+- It's ridiculous to have the fds and pids in the task spec.
+  Get rid of them, then make all the task specs static.  Those are
+  the classes.  Then, pass the fds and pids to task_install to
+  create the instances.
+  This will get rid of the duplicate closes.

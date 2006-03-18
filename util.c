@@ -49,7 +49,7 @@ int chdir_to_dldir()
 	if(download_dir) {
 		succ = chdir(download_dir);
 		if(succ != 0) {
-			log_err("Could not chdir to \"%s\": %s\n",
+			log_err("Could not chdir to \"%s\": %s",
 					download_dir, strerror(errno));
 			fprintf(stderr, "Could not chdir to \"%s\": %s\n",
 					download_dir, strerror(errno));

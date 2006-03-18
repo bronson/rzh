@@ -116,6 +116,7 @@ static void master_pipe_sigchild(master_pipe *mp, int pid)
 	}
 
 	if(pid == bgio->child_pid) {
+		// our child shell has disappeared.
 		// Kill off all tasks.  The removal of the last task will
 		// trigger the destructor which leaps directly home.
 		while(mp->task_head) {
@@ -130,6 +131,16 @@ static void master_pipe_sigchild(master_pipe *mp, int pid)
 
 int master_idle(master_pipe *mp)
 {
+	if(mp->master_atom.atom.fd < 0) {
+		// If we were reading from a socket, the socket has gone away.
+		// Either that or the pty has closed (that shouldn't be possible).
+		// Either way, our recourse is clear: time to bail.
+		log_dbg("Master fd has closed; time to bail");
+		while(mp->task_head) {
+			task_remove(mp);
+		}
+	}
+
 	task_spec *spec = mp->task_head->spec;
 	return spec->idle_proc ? (*spec->idle_proc)(spec) : MAXINT;
 }

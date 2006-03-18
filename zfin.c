@@ -232,7 +232,7 @@ void zfin_drop(struct fifo *f, const char *buf, int size, int fd)
 		return;
 	}
 
-	log_dbg("IGNORE from %d: %s", fd, sanitize(buf, size));
+	log_info("IGNORE from %d: \"%s\"", fd, sanitize(buf, size));
 }
 
 

@@ -48,7 +48,9 @@ static void window_resize(int dummy)
 void bgio_stop(bgio_state *state)
 {
 	tcsetattr(0, TCSAFLUSH, &state->stdin_termios);
+	log_info("Closed FD %d (master)", state->master);
 	close(state->master);
+	log_info("Closed FD %d (slave)", state->slave);
 	close(state->slave);
 }
 

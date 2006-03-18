@@ -73,6 +73,7 @@ static task_state* task_prepare(task_spec *spec)
 	task->next = NULL;
 	task->spec = spec;
 
+	log_dbg("created task state for 0x%08lX at 0x%08lX", (long)spec, (long)task);
 	return task;
 }
 
@@ -80,17 +81,24 @@ static task_state* task_prepare(task_spec *spec)
 static void task_destroy(task_state *task, int free_mem)
 {
 	if(task->read_atom.atom.fd >= 0) {
+		log_dbg("task_destroy: destroying read atom, fd=%d",
+				task->read_atom.atom.fd);
 		pipe_atom_destroy(&task->read_atom);
 	}
 	if(task->write_atom.atom.fd >= 0) {
+		log_dbg("task_destroy: destroying write atom, fd=%d",
+				task->write_atom.atom.fd);
 		pipe_atom_destroy(&task->write_atom);
 	}
 	if(task->err_atom.atom.fd >= 0) {
+		log_dbg("task_destroy: destroying error atom, fd=%d",
+				task->err_atom.atom.fd);
 		io_del(&task->err_atom.atom);
 	}
 
 	(*task->spec->destruct_proc)(task->spec, free_mem);
 
+	log_dbg("destroyed task state at 0x%08lX", (long)task);
 	if(free_mem) {
 		free(task);
 	}
@@ -153,6 +161,8 @@ void task_install(master_pipe *mp, task_spec *spec)
 {
 	task_state *task = task_prepare(spec);
 
+	log_dbg("Installing task state 0x%08lX at top of list.", (long)task);
+
 	// insert into the linked list
 	task->next = mp->task_head;
 	mp->task_head = task;
@@ -175,10 +185,12 @@ void task_remove(master_pipe *mp)
 
 	if(mp->task_head) {
 		// restore the prevous task in the pipe
+		log_dbg("Removing topmost task state 0x%08lX, restoring next at 0x%08lX.", (long)task, (long)mp->task_head);
 		task_pipe_setup(mp);
 		task_destroy(task, 1);
 	} else {
 		// no more tasks, call the pipe destructor
+		log_dbg("Removing last task 0x%08lX, calling master destructor.", (long)task);
 		task_destroy(task, 1);
 		(*mp->destruct_proc)(mp, 1);
 	}
@@ -200,9 +212,18 @@ void task_terminate(master_pipe *mp)
 
 void task_default_destructor(task_spec *spec, int free_mem)
 {
-	if(spec->infd >= 0) close(spec->infd);
-	if(spec->outfd >= 0) close(spec->outfd);
-	if(spec->errfd >= 0) close(spec->errfd);
+	if(spec->infd >= 0) {
+		log_info("Closed FD %d to destroy task input.", spec->infd);
+		close(spec->infd);
+	}
+	if(spec->outfd >= 0) {
+		log_info("Closed FD %d to destroy task output.", spec->outfd);
+		close(spec->outfd);
+	}
+	if(spec->errfd >= 0) {
+		log_info("Closed FD %d to destroy task error.", spec->errfd);
+		close(spec->errfd);
+	}
 
 	// We'll do nothing with the child pid.
 
@@ -234,6 +255,8 @@ static task_state* master_pipe_find_task(master_pipe *mp, task_spec *spec)
 void task_default_sigchild(master_pipe *mp, task_spec *spec, int pid)
 {
 	task_state *task;
+	// TODO: technically, calling printf inside a signal handler is
+	// illegal.  Get rid of these logging calls eventually.
 
 	if(pid != spec->child_pid) {
 		// nothing to do if it's not our child.
@@ -251,11 +274,12 @@ void task_default_sigchild(master_pipe *mp, task_spec *spec, int pid)
 		// been closed yet.  This means there's probably a touch
 		// more data in the read pipe.  Read it to exhaustion.
 		while(task->read_atom.atom.fd != -1) {
+			// probably we just found the eof and no actual data.
 			log_info("Found extra data in pipe %d:", task->read_atom.atom.fd);
 			pipe_io_proc(&task->read_atom.atom, IO_READ);
 		}
 		if(mp->input_master.write_atom->atom.fd >= 0) {
-			log_info("Wrote extra data to %d", mp->input_master.write_atom->atom.fd);
+			log_info("Wrote extra %d bytes of data to %d", fifo_count(&mp->input_master.fifo), mp->input_master.write_atom->atom.fd);
 			fifo_write(&mp->input_master.fifo, mp->input_master.write_atom->atom.fd);
 		}
 	}
@@ -276,7 +300,7 @@ void task_default_sigchild(master_pipe *mp, task_spec *spec, int pid)
 		// just exited, which means that the master pipe is gone
 		// anyway.  Nothing we can do except bail.  This must change
 		// if deeper pipes are being set up.
-		log_err("Parent process exited unexpectedly!\n");
+		log_err("Parent process exited unexpectedly!");
 		fprintf(stderr, "Parent process exited unexpectedly!\n");
 		bail(43);
 	}
@@ -421,6 +445,7 @@ master_pipe* master_pipe_init(int masterfd)
 }
 
 
+/*
 void master_pipe_terminate(master_pipe *mp)
 {
 	task_state *task = mp->task_head;
@@ -440,5 +465,6 @@ void master_pipe_terminate(master_pipe *mp)
 
 	// now the pipe should be entirely destroyed.
 }
+*/
 
 

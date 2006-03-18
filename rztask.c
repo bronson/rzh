@@ -109,7 +109,7 @@ static void cherr_proc(io_atom *inatom, int flags)
 	} else if(cnt == 0) {
 		// eof on stderr.
 		io_del(&atom->atom);
-		log_dbg("Closed child stderr %d.", atom->atom.fd);
+		log_info("Closed FD %d: got EOF on child stderr.", atom->atom.fd);
 		atom->atom.fd = -1;
 	} else {
 		log_warn("CHILD STDERR fd=%d:read error: %d (%s)",
@@ -122,11 +122,14 @@ static void rzt_destructor_proc(task_spec *spec, int free_mem)
 {
 	idle_end(spec);
 
+	log_dbg("rztask destructor called.");
+
 	// if the maout zfin scanner saved some text for us, we
 	// need to manually re-insert it into the pipe.
 	zfinscanstate *maout = (zfinscanstate*)spec->maout_refcon;
 	if(maout->savebuf) {
-		log_dbg("RESTORE %d saved bytes into pipe: %s", maout->savecnt, sanitize(maout->savebuf, maout->savecnt));
+		log_dbg("RESTORE %d saved bytes into pipe: %s",
+				maout->savecnt, sanitize(maout->savebuf, maout->savecnt));
 		pipe_write(&spec->master->master_output, maout->savebuf, maout->savecnt);
 	}
 
@@ -142,6 +145,8 @@ static void rzt_destructor_proc(task_spec *spec, int free_mem)
 static task_spec* rz_create_spec(master_pipe *mp, int fd[3], int child_pid)
 {
 	task_spec *spec = task_create_spec();
+
+	log_dbg("Created rz task spec at 0x%08lX", (long)spec);
 
 	spec->infd = fd[0];
 	spec->outfd = fd[1];

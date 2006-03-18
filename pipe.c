@@ -42,11 +42,12 @@ static int pipe_fifo_read(struct pipe *pipe)
 	int cnt = fifo_read(&pipe->fifo, pipe->read_atom->atom.fd);
 	if(cnt == -2) {
 		// File was EOFd.  Close automatically.
-		log_dbg("Got EOF.  Closed %d.", pipe->read_atom->atom.fd);
+		// We won't close here because we're waiting for a sigchld
+		// that will cause the whole task to disappear.
+		log_info("Closed FD %d due to EOF.", pipe->read_atom->atom.fd);
 		close(pipe->read_atom->atom.fd);
 		pipe_atom_destroy(pipe->read_atom);
 		pipe->read_atom->atom.fd = -1;
-
 		// TODO: we might want to inform the write_atom that that the read
 		// side of the pipe is closed so it won't get any more data.
 		// OTOH, when it goes to pull data from the fifo, it can notice
@@ -64,7 +65,7 @@ static int pipe_fifo_write(struct pipe *pipe)
 {
 	int cnt = fifo_write(&pipe->fifo, pipe->write_atom->atom.fd);
 	if(cnt == -1 && errno == EPIPE) {
-		log_dbg("Got EPIPE.  Closed %d", pipe->write_atom->atom.fd);
+		log_info("Closed FD %d due to EPIPE", pipe->write_atom->atom.fd);
 		close(pipe->write_atom->atom.fd);
 		pipe_atom_destroy(pipe->write_atom);
 		pipe->write_atom->atom.fd = -1;
@@ -283,6 +284,7 @@ void pipe_atom_init(pipe_atom *atom, int fd)
 {
 	int err;
 
+	log_dbg("created pipe atom 0x%08lX for %d", atom, fd);
 	set_nonblock(fd);
 	io_atom_init(&atom->atom, fd, pipe_io_proc);
 	err = io_add(&atom->atom, 0);
@@ -299,6 +301,7 @@ void pipe_atom_init(pipe_atom *atom, int fd)
 
 void pipe_atom_destroy(pipe_atom *atom)
 {
+	log_dbg("destroyed pipe atom 0x%08lX for %d", atom, atom->atom.fd);
 	if(atom->atom.fd >= 0) {
 		io_del(&atom->atom);
 	}

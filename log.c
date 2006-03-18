@@ -13,7 +13,7 @@
 #include "log.h"
 
 
-static int g_prio = 255;
+static int g_prio = 0;
 static FILE *g_logfile;
 
 
@@ -56,7 +56,7 @@ void log_init(const char *path)
 			perror("opening log file");
 			exit(99);
 		}
-		fprintf(g_logfile, " -=-  vi:syn=c\n");
+		fprintf(g_logfile, " -=-  vi:syn=c\n");	// to syntax highlight strings
 		fprintf(g_logfile, "open: FD Log: %d\n", fileno(g_logfile));
 		fflush(g_logfile);
 	}

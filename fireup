@@ -4,16 +4,25 @@
 # the file(s).
 
 
-my $sendfile = 'tt.c';
+my $sendfile = 'rztask.h';
 my $dstdir = '/tmp';
-my $loglevel = 6;
+my $loglevel = 10;
+my $logfile = '/tmp/rzh.log';
+
+@rzh = ("./rzh");
+if(1) {
+	unshift @rzh, "/usr/bin/valgrind";
+}
 
 -f $sendfile or die "$sendfile does not exist!\n";
+system("/bin/rm", "-f", $logfile);
 
 open($sz, "sz --tcp-server $sendfile |");
 while(<$sz>) {
 	if(/connect with lrz --tcp-client "([^"]+)"/) {
-		exec "./rzh $dstdir --connect $1 --log-level $loglevel\n";
+		exec(@rzh, $dstdir, "--connect", $1,
+			"--log-level", $loglevel, "--log-file", $logfile)
+			or die "Could not exec rzh: $!\n";
 	}
 }
 
