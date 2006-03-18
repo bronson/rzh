@@ -75,11 +75,12 @@ void preabort(int val)
 void rzh_fork_prepare()
 {
 	if(conn_fd > -1) {
+		log_info("Close FD %d because we're forking or quitting.", conn_fd);
 		close(conn_fd);
 	}
 
-	log_close();
 	io_exit();
+	log_close();
 	fdcheck();
 }
 
@@ -473,20 +474,15 @@ int main(int argc, char **argv)
 		val = 0;
 	}
 
+	cmd_free(&rzcmd);
+	cmd_free(&shellcmd);
+
 	if(val == 0) {
 		// We're not forking, we're qutting normally.  The requirements are
 		// exactly the same: verify everything has been shut down properly.
 		rzh_fork_prepare();
 		io_exit_check();
 	}
-
-	if(conn_fd >= 0) {
-		log_info("Close FD %d", conn_fd);
-		close(conn_fd);
-	}
-
-	cmd_free(&rzcmd);
-	cmd_free(&shellcmd);
 
 	exit(val);
 }

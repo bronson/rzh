@@ -3,6 +3,8 @@
 # Launches sz in server mode, then causes rzh to connect and download
 # the file(s).
 
+# Invoke as "fireup --valgrind" to run rzh under valgrind.
+
 
 my $sendfile = 'rztask.h';
 my $dstdir = '/tmp';
@@ -10,7 +12,7 @@ my $loglevel = 10;
 my $logfile = '/tmp/rzh.log';
 
 @rzh = ("./rzh");
-if(1) {
+if(grep { /^-v$/ || /^--valgrind$/ } @ARGV) {
 	unshift @rzh, "/usr/bin/valgrind";
 }
 

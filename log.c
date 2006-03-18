@@ -70,6 +70,8 @@ void log_close()
 			fclose(g_logfile);
 		}
 	}
+
+	g_logfile = NULL;
 }
 
 
