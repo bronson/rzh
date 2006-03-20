@@ -2,7 +2,7 @@
 # Scott Bronson
 # This file is MIT licensed (public domain, but removes author liability).
 
-VERSION=0.7
+VERSION=0.8
 
 CSRC=bgio.c echo.c fifo.c log.c idle.c master.c pipe.c cmd.c \
 	rztask.c task.c util.c zfin.c zrq.c
@@ -37,8 +37,13 @@ tags: $(CSRC) $(CHDR)
 	ctags -R
 
 install: all
+	mkdir -p /usr/local/bin
 	cp rzh /usr/local/bin
 	mkdir -p /usr/local/man/man1
 	cp rzh.1 /usr/local/man/man1
+
+uninstall:
+	rm -f /usr/local/bin/rzh
+	rm -f /usr/local/man/man1/rzh.1
 
 .PHONY: test

@@ -5,18 +5,20 @@
 
 # This throws an endless stream of randomly-sized files with randomly chosen
 # attributes at the zmodem transfer programs.  It stops if it finds an error.
-# You can run it for a few days to try to shake out bugs.
+# You can run it for a few days to try to shake out bugs.  This utility is
+# what made me realize pdpzm was just too buggy.  Now that rzh uses rz
+# directly, there's not much point to running this script much.
+
+# See README for instructions on how to run bittertest from a RAM disk.
 
 
-# -R  : use lrz instead of rzh -r to receive
-# -S  : use lsz instead of rzh -s to send
-# -e  : just output generated file sizes (to test the random number generator).
-# -l  : tells bittertest to use lrzsz to receive instead of rzh.
+# -R  : use lrz instead of rzh to receive (removes rzh from the loop)
 # -n N: the maximum number of tests to perform (default: unlimited)
 # -r N: random seed (default: 1)
 # -s N: maximum file size in bytes (by default 64 megabytes).
 #     	note that we use rand^4, so the avg file size is smaller than 32 MB
 # -t P: specifies the temporary directory to use (default: /tmp)
+# -e  : just output generated file sizes (to test the random number generator).
 
 # The output:
 # seq:   sequence number -- starts at 1 and counts upward.
@@ -38,14 +40,9 @@
 
 
 # full path to randfile program
-#RANDFILE=./randfile.pl
 RANDFILE=./randfile
-
 RZ=`pwd`"/../rzh -r"
-# This is disabled until rzh -s can work bug-free.
-# SZ=`pwd`"/../rzh -s"
 SZ=/usr/bin/sz
-TMPDIR="/tmp"
 
 NOMODE=0
 RANDOM=1
@@ -56,7 +53,6 @@ do
 	case $opt in
 		e) CHECKSIZE=1;;
 		R) RZ=/usr/bin/rz;;
-		S) SZ=/usr/bin/sz;;
         m) NOMODE=1;;       # don't check file mode or mtime.
 		n) MAXITER=$OPTARG;;
 		r) RANDOM=$OPTARG;;
@@ -65,15 +61,24 @@ do
 		*) echo "invalid option: ${OPTARG}"; exit 1;;
 	esac
 done
+
 shift $(($OPTIND - 1))
 if (($#)); then
 	echo "Too many arguments!"
 	exit 0
 fi
+
+if [ X"$1" = "X" ]; then
+	TMPDIR=`mktemp -d`
+	trap "rm -rf $TMPDIR" EXIT
+fi
+
 # for arg do echo '--> '"\`$arg'" ; done
+
 
 if [ ! -d "$TMPDIR" ]; then echo "Directory \"$TMPDIR\" doesn't exist."; exit 1; fi
 if [ ! -w "$TMPDIR" ]; then echo "Directory \"$TMPDIR\" isn't writable."; exit 1; fi
+
 
 srcfile="$TMPDIR/bittertest.data"
 dstdir="$TMPDIR/bittertest"

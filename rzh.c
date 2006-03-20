@@ -36,7 +36,6 @@
 const char *envname = "RZHDIR";
 
 
-static int opt_verbosity = 0;			// print notification/debug messages
 int opt_quiet = 0;					// suppress status messages
 const char *download_dir = NULL;	// download files to this directory
 static jmp_buf g_bail;
@@ -245,7 +244,6 @@ static void usage()
 {
 	printf(
 			"Usage: rzh [OPTION]... [DLDIR]\n"
-/*			"  -v --verbose : increase verbosity.\n"    not very useful */
 			"  -i --info    : tells if rzh is currently running or not.\n"
 			"  -V --version : print the version of this program.\n"
 			"  -h --help    : prints this help text\n"
@@ -289,7 +287,6 @@ static void process_args(int argc, char **argv)
 			{"quiet", 0, 0, 'q'},
 			{"rz", 1, 0, RZ_CMD},
 			{"shell", 1, 0, SHELL_CMD},
-			{"verbose", 0, 0, 'v'},
 			{"version", 0, 0, 'V'},
 			{0, 0, 0, 0}
 		};
@@ -359,10 +356,16 @@ static void process_args(int argc, char **argv)
 
 			case RZ_CMD:
 				cmd_parse(&rzcmd, optarg);
+				if(!opt_quiet) {
+					cmd_print("Receive ZMODEM command", &rzcmd);
+				}
 				break;
 
 			case SHELL_CMD:
 				cmd_parse(&shellcmd, optarg);
+				if(!opt_quiet) {
+					cmd_print("Shell command", &rzcmd);
+				}
 				break;
 
 			case CONNECT_CMD:
@@ -372,10 +375,6 @@ static void process_args(int argc, char **argv)
 					fprintf(stderr, fmt, optarg);
 					exit(argument_error);
 				}
-				break;
-
-			case 'v':
-				opt_verbosity++;
 				break;
 
 			case 'V':
@@ -399,10 +398,6 @@ static void process_args(int argc, char **argv)
 		}
 		fprintf(stderr, "\n");
 		exit(argument_error);
-	}
-
-	if(opt_verbosity) {
-		cmd_print(&rzcmd);
 	}
 
 	if(addr_specified && conn_addr.port == 0) {

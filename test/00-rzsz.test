@@ -2,21 +2,23 @@
 # Scott Bronson
 # 4 Nov 2004
 
-# Ensures that the "rz" and "sz" utilities can interoprate without
-# error.  If not, then this needs to be fixed before running rzh!
+# Ensures that the "rz" and "sz" utilities can talk to each other reliably.
+# If not, then this needs to be fixed before running rzh!
 
 
-rm -rf /tmp/tmtest-zmodem /tmp/tmtest-zmodem-pipe /tmp/tmtest-zmodem-data
+MKDIR DIR
+mkdir "$DIR/send" "$DIR/recv"
+mkfifo "$DIR/fifo"
 
-mkdir /tmp/tmtest-zmodem
-mkfifo /tmp/tmtest-zmodem-pipe
+$randfile --seed=1 --size=512 > "$DIR/send/data"
 
-randfile --seed=1 --size=512 > /tmp/tmtest-zmodem-data
+# sz sometimes outputs a ^M on stderr so we send it to /dev/null.
+sz -q "$DIR/send/data" 2>/dev/null < "$DIR/fifo" | \
+	(cd "$DIR/recv" && exec rz -q > "$DIR/fifo")
 
-# sz outputs sometimes outputs a ^M on stderr so we need to just discard it.
-sz -q /tmp/tmtest-zmodem-data 2>/dev/null < /tmp/tmtest-zmodem-pipe | \
-	(cd /tmp/tmtest-zmodem && exec rz -q > /tmp/tmtest-zmodem-pipe)
+$randfile --seed=1 --size=512 --check < "$DIR/recv/data"
 
-randfile --seed=1 --size=512 --check < /tmp/tmtest-zmodem/tmtest-zmodem-data
+rm "$DIR/send/data" "$DIR/recv/data" "$DIR/fifo"
+rmdir "$DIR/send" "$DIR/recv"
 
------- STDOUT: exit code 0 - no error
+# If there's no error, nothing will be printed.

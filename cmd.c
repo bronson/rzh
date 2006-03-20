@@ -132,11 +132,11 @@ void cmd_parse(command *cmd, const char *str)
 }
 
 
-void cmd_print(command *cmd)
+void cmd_print(const char *str, command *cmd)
 {
 	int i;
 
-	printf("receive command: ('%s': ", cmd->path);
+	printf("%s: ('%s': ", str, cmd->path);
 	for(i=0; cmd->args[i] != NULL; i++) {
 		printf(", '%s'", cmd->args[i]);
 	}

@@ -1,38 +1,90 @@
-TODO: add option to not truncate any data.  maybe shrink buffer though.
-TODO: 	(maybe) add ability to see what rproc copied into the fifo.
-TODO: when we read 0 bytes, we know the socket is closed and should quit.
-		(what happens when we read 0 bytes from the tty?)
-TODO: set up tests
-TODO: rzh --up, rzh -u, rzhu, or rzu: move up
-TODO: move to tmtest 0.9, 0.8 is dead.
-TODO: remove logging code, asserts, strip executable
-TODO: log level and verbosity clash.  which one should I use?
-		(should combine them, use -v as a substitute for --log-level)
+FIRST: get some goddamn functional tests.  And some unit tests if at
+all possible.  But why bother writing unit tests when the units are
+all rotten?
 
+todo: set all buffers to 1 byte and see if we garble anything
+todo: set all buffers to 7 bytes (1 larger than start string)
+	and see if we garble anything
+
+TODO: turn off disable timeouts in rz.  Nah, leave em on.
+	User can always cancel the transfer manually.
+todo: add specifying the subshell to use (-c).
+	(this should help testing because I could do "rzh -c sz ..."
+
+todo: need to consolidate the bailage all over the place.
+	Consistent exit codes and stderr/log messages at least.
+
+- Move logio into the log library.  Need a way for non-fifo parts of
+  the code to log buffer contents.  Clean up logio in zrq.c.
+  Call it log_buffer or log_data or something.
+
+- It's ridiculous to have the fds and pids in the task spec.
+  Get rid of them, then make all the task specs static.  Those are
+  the classes.  Then, pass the fds and pids to task_install to
+  create the instances.
+  This will get rid of the duplicate closes.
+
+- Should turn master into just another task.  Only difference between
+  master and regular tasks is that master got added first.
+
+- Need to worry about overflowing byte counters.  Convert them to long longs?
+  Otherwise the numbers will go wrong after 4 GB transferred.
+
+- Add a real message for when a file is skipped.
+  Should recommend using "sz -y"  or "sz -N" to ensure file is sent.
+
+- Move interacting with user during transfer to a different file.
+  Ensure that that works.  Make it simple so others can contribute.
+  rzh 1:06.2  received 9.58 MB at 15 kB/s, sent 68 B at 1 B/s.
+
+- Could parse the zmodem stream to discover the filename and size
+  so we can provide a better in-progress display.
+  Actually, play around with rz -v -v -v first.
+
+
+TODO: remove logging code, asserts, strip executable
+	- Spread ifndef NDEBUG everywhere.
+TODO: rzh --up, rzh -u, rzhu, or rzu: move up
+TODO: add unit tests.
+TODO: rzh from rsync.
+TODO: rzh from tar.
+
+
+20 Mar 2006:
+* Finally got the last of the known bugs.  It now works pretty well!
+* Bump version to 0.8.
 
 17 Jun 2005:
- * It works well!  It finally works well.
+ * It works!  It finally sometimes works.
 
 13 Jun 2005:
  * Try forking a new rz process to handle the zmodem transfer.
-   (pdpzm works but it is excruciatingly slow).
+   pdpzm works but it has some boundary case bugs and is excruciatingly slow.
 
 13 Nov 2004: tagged version 0.2 (r27)
  * Made zmfr.c modular, sent in patches.
  * Added send functionality but it appears very broken.
 
- 5 Nov 2004: tagged version 0.1 (r21)
+05 Nov 2004: tagged version 0.1 (r21)
  * Switched to the pdpzm library because the lrzsz code is amazingly brittle.
 
 15 Jan 2004:
  * First version.  Tried to modify lrzsz's rz command to add this feature.
 
 
-todo: set all buffers to 1 byte and see if we garble anything
-todo: set all buffers to 7 bytes (1 larger than start string) and see if we garble anything
+LONG TERM:
+
+- Fifo is overcomplex.  Should have used shiftbufs so I don't packetize
+  the stream more than I should.  Switch fifo.c to shiftbuf.c?
+  No.  Instead, finish the netknife infrastructure, then switch it over
+  to that.
+
+
+NO NEED:
 
 todo: make expandable fifos so masses of memory will guard against deadlock.
-	(there doesn't seem to be a need...?)
+	Actually, don't do this.  There doesn't seem to be a need.
+	Especially because zmodem doesn't ever read, it only writes!
 
 todo: there is a slight chance of deadlock when we're installing a new task.
 	The problem is draining the fifo for the new task.  Instead, we should
@@ -40,16 +92,9 @@ todo: there is a slight chance of deadlock when we're installing a new task.
 	has drained down to that point, we'll kick it over to the new task
 	automatically.  Right now, fifo_drain is really, really, evil.
 	NOTE: this should solve the nested task create / sigchild issue.
-
-TODO: turn off disable timeouts in rz.  Nah, leave em on.  User can always cancel the transfer manually.
-todo: add specifying the subshell to use (-c).
-
-todo: need to consolidate the bailage all over the place.
-	Consistent exit codes and stderr/log messages at least.
-
-todo: what happens if I try to clobber a file?
-	(it appears zmodem refuses...  is this smart?)
-todo: there's no way to preserve symlinks, etc.  Maybe use tar
-	to implement an automatic archival mode?
-		Wonder if we could just watch for a tarfile being catted
-		to the console.  Might have to worry about escaping.
+	(this issue is where we receive a sigchld when the buffer contains
+	data intended for the rz task and data intended for the outer shell.
+	Who handles the sigchld?)
+	As it turns out, the deadlock never even comes close to happening and
+	it's easy enough just to handle the sigchld late.  Sure, it would be
+	more correct to mark the buffer, but this is good enough for now.

@@ -20,8 +20,8 @@ License Note
 mt19937ar.c has a somewhat oddball license (it's like bsd+attribution?).
 This would be a showstopper if I tried to include the code from mt19937ar.c
 directly in the rzh utility.  However, because it's only a part of a
-utility in the test suite and will probably never be distributed in binary
-form, I think that I'm completey within compliance.
+utility in the test suite and will never be distributed in binary form,
+I think that tmtest is compliant.
 
 So, if you distribute the randfile utility in binary form, well, you'll have
 to to add a lot of idiotic legalese to your documentation.

@@ -14,7 +14,7 @@ typedef struct {
 
 void cmd_init(command *cmd);
 void cmd_parse(command *cmd, const char *str);
-void cmd_print(command *cmd);
+void cmd_print(const char *str, command *cmd);
 void cmd_free(command *cmd);
 
 
