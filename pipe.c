@@ -87,11 +87,13 @@ static int pipe_fifo_write(struct pipe *pipe)
 
 static void pipe_auto_read(struct pipe *pipe)
 {
-	int cnt;
+	int cnt, n;
 
+#ifndef NDEBUG
 	if(!fifo_avail(&pipe->fifo)) {
 		assert(fifo_avail(&pipe->fifo) > 0);
 	}
+#endif
 
 	cnt = pipe_fifo_read(pipe);
 	if(cnt == -1) {
@@ -110,17 +112,22 @@ static void pipe_auto_read(struct pipe *pipe)
 	pipe_fifo_write(pipe);
 
 	// return if we're all done (should be the normal case)
-	if(!fifo_count(&pipe->fifo)) {
+	n = fifo_count(&pipe->fifo);
+	if(!n) {
 		return;
 	}
 
 	// There's still data in the fifo so the last write didn't
 	// complete.  We need to be notified when we can write again.
 	io_enable(&pipe->write_atom->atom, IO_WRITE);
+	log_dbg("%d bytes remaining, enabling IO_WRITE on %d",
+			n, pipe->write_atom->atom.fd);
 
 	// if there's no more room in the fifo then we need to stop trying
 	// to read.  We'll restart reading when we manage to write some bytes.
 	if(!fifo_avail(&pipe->fifo)) {
+		log_dbg("fifo is full! Disabling IO_READ on %d",
+				pipe->read_atom->atom.fd);
 		io_disable(&pipe->read_atom->atom, IO_READ);
 		pipe->block_read = 1;
 	}
@@ -132,14 +139,29 @@ static void pipe_auto_read(struct pipe *pipe)
 
 static void pipe_auto_write(struct pipe *pipe)
 {
-	assert(fifo_count(&pipe->fifo) > 0);
+	// Can't enable this assert because read procs write fifos too.
+	// Picture this: the OS gives us both a read AND a write notification.
+	// Since the fds may be handled in arbitrary order, the read fd's
+	// callback is called first.  It reads a little bit of data, then
+	// writes the entire fifo to disk, leaving it empty.  Now our write
+	// callbak is called and we get here but there's no data in the fifo!
+	// Oh well.  We just write 0 bytes and do the proper io_enables.
+	// assert(fifo_count(&pipe->fifo) > 0);
+
 	pipe_fifo_write(pipe);
+	
+	// If there's STILL no room in this fifo, it means the operating
+	// system lied to us when it sent us this write notification.
+	// If this assert is giving you trouble, just comment it out.
+	// It indicates an OS bug, not an rzh bug.
 	assert(fifo_avail(&pipe->fifo) > 0);
 
 	// We just freed up some room.  If reads are currently
 	// blocking, we need to unblock them.
 	if(pipe->block_read && pipe->read_atom->atom.fd >= 0) {
 		io_enable(&pipe->read_atom->atom, IO_READ);
+		log_dbg("Freed some room so re-enabling IO_READ on %d",
+				pipe->read_atom->atom.fd);
 		pipe->block_read = 0;
 	}
 
@@ -147,6 +169,8 @@ static void pipe_auto_write(struct pipe *pipe)
 	// turn off write notification
 	if(!fifo_count(&pipe->fifo)) {
 		io_disable(&pipe->write_atom->atom, IO_WRITE);
+		log_dbg("Fifo is empty, disabliing IO_WRITE on %d",
+				pipe->write_atom->atom.fd);
 	}
 }
 
@@ -185,6 +209,8 @@ int pipe_write(struct pipe *pipe, const char *buf, int size)
 	if(size <= 0) {
 		// no need to watch for write events on this file
 		io_disable(&pipe->write_atom->atom, IO_WRITE);
+		log_dbg("Wrote entire fifo, disabling IO_WRITE on %d",
+				pipe->write_atom->atom.fd);
 		return total;
 	}
 
@@ -198,65 +224,11 @@ int pipe_write(struct pipe *pipe, const char *buf, int size)
 
 	// Need to be notified when we can write again
 	io_enable(&pipe->write_atom->atom, IO_WRITE);
+	log_dbg("Fifo still has data, enabling IO_WRITE on %d",
+			pipe->write_atom->atom.fd);
 
 	return total;
 }
-
-
-#if 0
-/** Like pipe_write() except that the data is inserted BEFORE the
- *  existing data rather than being appended after.
- *
- *  Note that this can only be called once.  It must try to drain the
- *  pipe, so anything inserted later may come after the data in the pipe.
- *
- *  @returns The number of bytes written.  This will always equal size
- *  unless the receiving filehandle is blocking AND the fifo is full.
- *  (this should never happen)
- */
-
-int pipe_prepend(struct pipe *pipe, const char *buf, int size)
-{
-	int cnt;
-	int total = 0;
-
-	// Always try an immediate write since we're inserting
-	do {
-		errno = 0;
-		cnt = write(pipe->write_atom->atom.fd, buf, size);
-	} while(cnt == -1 && errno == EINTR);
-	if(cnt < 0) {
-		log_warn("pipe write: cnt=%d error=%d (%s)", cnt, errno, strerror(errno));
-	}
-	if(cnt > 0) {
-		buf += cnt;
-		total += cnt;
-		size -= cnt;
-	}
-
-	if(size <= 0) {
-		// If there's still more data in the fifo, we should
-		// try to write so flags are set properly.
-		if(fifo_count(&pipe->fifo)) {
-			pipe_auto_write(pipe);
-		}
-		return total;
-	}
-
-	// There was unwritten data.  Try to write it to the fifo.
-	cnt = fifo_avail(&pipe->fifo);
-	if(size < cnt) cnt = size;
-	fifo_unsafe_prepend(&pipe->fifo, buf, cnt);
-	buf += cnt;
-	total += cnt;
-	size -= cnt;
-
-	// Need to be notified when we can write again
-	io_enable(&pipe->write_atom->atom, IO_WRITE);
-
-	return total;
-}
-#endif
 
 
 /** This is the entrypoint for all pipe atom i/o notifications.
@@ -334,6 +306,8 @@ void pipe_init(struct pipe *pipe, pipe_atom *ratom, pipe_atom *watom, int size)
 	// which is filled by a function, not by a reader).
 	if(pipe->read_atom) {
 		io_enable(&pipe->read_atom->atom, IO_READ);
+		log_dbg("Fifo is brand new, enabling IO_READ on %d",
+				pipe->read_atom->atom.fd);
 	}
 }
 

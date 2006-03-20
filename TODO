@@ -2,6 +2,8 @@ FIRST: get some goddamn functional tests.  And some unit tests if at
 all possible.  But why bother writing unit tests when the units are
 all rotten?
 
+- Get rid of block_read everywhere.
+- Spread ifndef NDEBUG everywhere.
 - Move logio into the log library.  Need a way for non-fifo parts of
   the code to log buffer contents.  Clean up logio in zrq.c.
 - It's ridiculous to have the fds and pids in the task spec.
@@ -9,3 +11,20 @@ all rotten?
   the classes.  Then, pass the fds and pids to task_install to
   create the instances.
   This will get rid of the duplicate closes.
+- Should turn master into just another task.  Only difference between
+  master and regular tasks is that master got added first.
+- Need to worry about overflowing byte counters.  Convert them to long longs?
+  Otherwise the numbers will go wrong after 4 GB transferred.
+- Add a real message for when a file is skipped.
+  Should recommend using "sz -y"  or "sz -N" to ensure file is sent.
+- Move interacting with user during transfer to a different file.
+  Ensure that that works.
+
+- Could parse the zmodem stream to discover the filename and size
+  so we can provide a better in-progress display.
+  Actually, play around with rz -v -v -v first.
+
+- Fifo is overcomplex.  Should have used shiftbufs so I don't packetize
+  the stream more than I should.  Switch fifo.c to shiftbuf.c?
+  No.  Instead, finish the netknife infrastructure, then switch it over
+  to that.

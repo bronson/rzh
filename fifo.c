@@ -24,6 +24,9 @@
 #include "log.h"
 
 
+#define LOG_BUFFER_CONTENTS 0
+
+
 /* name is an arbitrary name for the fifo */
 struct fifo *fifo_init(struct fifo *f, int initsize)
 {
@@ -159,6 +162,9 @@ const char* sanitize(const char *s, int n)
 			*cp++ = (((unsigned char)s[i] >> 6) & 0x07) + '0';
 			*cp++ = (((unsigned char)s[i] >> 3) & 0x07) + '0';
 			*cp++ = (((unsigned char)s[i] >> 0) & 0x07) + '0';
+		} else if(s[i] == '"') {
+			*cp++ = '\\';
+			*cp++ = '"';
 		} else {
 			*cp++ = s[i];
 		}
@@ -188,7 +194,7 @@ void logio(char *gr1, char* gr2, int fd, const char *buf, int cnt, int act)
 		buf += i;
 
 		// print the rest of the buffer
-		while(n > 0) {
+		while(LOG_BUFFER_CONTENTS && n > 0) {
 			i = n;
 			if(i > 64) {
 				i = 64;
@@ -262,7 +268,8 @@ int fifo_read(struct fifo *f, int fd)
 			cnt = old - fifo_avail(f);
 		}
 		if(cnt >= 0) {
-			log_info("RProc copied %d into %d.", cnt, fd);
+			log_info("RProc copied %d into %d, count is now %d.", cnt, fd,
+					fifo_count(f));
 		} else {
 			log_err("RProc returned %d for %d.", cnt, fd);
 		}
@@ -283,7 +290,7 @@ int fifo_read(struct fifo *f, int fd)
  * This routine should never return 0 but I can't guarantee it.
  */
 
-#define logwr(x, y, z, a) logio("Write", "to", x, y, z, a)
+#define logwr(fd, buf, cnt, act) logio("Write", "to", fd, buf, cnt, act)
 
 int fifo_write(struct fifo *f, int fd)
 {
@@ -309,8 +316,8 @@ int fifo_write(struct fifo *f, int fd)
 				do {
 					errno = 0;
 					n = write(fd, f->buf, f->end);
-					logwr(fd, f->buf, f->end, cnt);
-				} while(cnt == -1 && errno == EINTR);
+					logwr(fd, f->buf, f->end, n);
+				} while(n == -1 && errno == EINTR);
 				if(n > 0) { f->beg = n; cnt += n; }
 			}
 		}

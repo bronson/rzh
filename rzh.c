@@ -460,7 +460,9 @@ int main(int argc, char **argv)
 		task_install(mp, echo_scanner_create_spec(mp));
 		for(;;) {
 			// main loop, only ends through longjmp
-			io_wait(master_idle(mp));
+			int time = master_idle(mp);
+			log_dbg("loop...   timeout=%d", time);
+			io_wait(time);
 			io_dispatch();
 			// Turns out we need to dispatch before handling sigchlds.
 			// Otherwise, since the sigchld probably causes fds to open

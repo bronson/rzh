@@ -139,11 +139,22 @@ static void adjust_string_width(char *buf, int width)
 }
 
 
-/** Prints a continually updated status string during the transfer. */
+/** Prints a continually updated status string during the transfer.
+ */
 
 int idle_proc(task_spec *spec)
 {
-	enum { sleeptime = 300 };	// time between invocations in ms.
+	enum {
+		sleeptime = 300,	// time between invocations in ms.
+		fuzztime = 50,		// if there are less than fuzztime ms until
+			// the idle proc comes due, then we just run the idle proc
+			// now.  It's early, but the user won't know the difference.
+			// More efficient to do it this way rather than requiring our
+			// own timeout at precisely the right time.
+		// In short:
+		// minimum time to next idleproc: sleeptime - fuzztime.
+		// maximum time to next idleproc: sleeptime.
+	};
 
 	char buf[256];
 	int len;
@@ -168,7 +179,7 @@ int idle_proc(task_spec *spec)
 		clock_gettime(CLOCK_REALTIME, &now_time);
 		diff = timespec_diff(&now_time, &idle->last_time);
 		bah = sleeptime - (int)(diff*1000);
-		if(bah > 0) {
+		if(bah > fuzztime) {
 			return bah;
 		}
 	}
