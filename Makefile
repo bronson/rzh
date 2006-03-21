@@ -2,6 +2,9 @@
 # Scott Bronson
 # This file is MIT licensed (public domain, but removes author liability).
 
+# "make PRODUCTION=1" to optimize and strip binary.
+
+
 VERSION=0.8
 
 CSRC=bgio.c echo.c fifo.c log.c idle.c master.c pipe.c cmd.c \
@@ -10,13 +13,21 @@ CHDR:=$(CSRC:.c=.h)
 CSRC+=rzh.c io/io_select.c io/io_socket.c
 
 COPTS+=-DVERSION=$(VERSION)
-COPTS+=-Wall -Werror
-COPTS+=-g
+
+ifeq ("$(PRODUCTION)","1")
+COPTS+=-O2 -DNDEBUG
+else
+COPTS+=-Wall -Werror -g
+endif
+
 
 all: rzh doc
 
 rzh: $(CSRC) $(CHDR)
 	$(CC) $(COPTS) $(CSRC) -lutil -lrt -o rzh
+ifeq ("$(PRODUCTION)","1")
+	strip rzh
+endif
 
 doc: rzh.1
 

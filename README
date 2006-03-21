@@ -15,7 +15,7 @@ REQUIREMENTS
 
 INSTALLATION
 
-	$ make
+	$ make PRODUCTION=1
 	$ make test
 	$ make install
 

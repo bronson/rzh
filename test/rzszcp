@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# arg1: the file to copy
+# arg2: the destination directory
+
+# This can be used to compare how long it takes to transfer a
+# large file using rz and sz without rzh in the middle.  Adding
+# rzh causes a 190 MB file to take 10.0s, up from 6.8s.  So,
+# non-bw-limited rzh transfers take 30% longer.  Given the
+# amount of other overhead in there (pty, etc), I can live
+# with that.
+
+
+FIFO=/tmp/rzszcp-fifo
+
+mkfifo "$FIFO"
+
+sz -q "$1" 2>/dev/null < "$FIFO" | (cd "$2" && exec rz -q > "$FIFO")
+
+rm "$FIFO"
+

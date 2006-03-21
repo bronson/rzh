@@ -1,30 +1,48 @@
 #!/usr/bin/perl -w
 
 # Launches sz in server mode, then causes rzh to connect and download
-# the file(s).
+# the file.  Only tests one at a time.  It doesn't really make sense
+# to run this test -- it was only meant for quick checks during development.
+# See bittertest for a much more comprehensive test.
 
-# Invoke as "fireup --valgrind" to run rzh under valgrind.
+# Invoke as "fireup --valgrind" (or -v) to run rzh under valgrind.
 
 
-my $sendfile = 'rztask.h';
 my $dstdir = '/tmp';
 my $loglevel = 10;
 my $logfile = '/tmp/rzh.log';
+my @rzh = ($ENV{RZH} || "../rzh");
 
-@rzh = ("./rzh");
-if(grep { /^-v$/ || /^--valgrind$/ } @ARGV) {
-	unshift @rzh, "/usr/bin/valgrind";
-}
+for my $sendfile (@ARGV) {
+	if($sendfile =~ /^-v$/ || $sendfile =~ /^--valgrind$/) {
+		unshift @rzh, "/usr/bin/valgrind";
+	} elsif($sendfile =~ /^-s$/ || $sendfile =~ /^--strace$/) {
+		unshift @rzh, "/usr/bin/strace";
+	} else {
+		-f $sendfile or die "$sendfile does not exist!\n";
+		system("/bin/rm", "-f", $logfile);
 
--f $sendfile or die "$sendfile does not exist!\n";
-system("/bin/rm", "-f", $logfile);
-
-open($sz, "sz --tcp-server $sendfile |");
-while(<$sz>) {
-	if(/connect with lrz --tcp-client "([^"]+)"/) {
-		exec(@rzh, $dstdir, "--connect", $1,
-			"--log-level", $loglevel, "--log-file", $logfile)
-			or die "Could not exec rzh: $!\n";
+		open($sz, "sz --tcp-server $sendfile |");
+		my $up = 0;
+		while(<$sz>) {
+			if(/connect with lrz --tcp-client "([^"]+)"/) {
+				$up = 1;
+				if(fork() == 0) {
+					close $sz;
+#					open(STDIN, "</dev/null");
+#					open(STDIN, "</tmp/null");
+#					open(STDOUT, ">/dev/null");
+#					open(STDERR, ">/dev/null");
+					exec(@rzh, $dstdir, "--connect", $1, "-q",
+						"--rz", "/usr/bin/rz -v -v -v",
+						"--log-level", $loglevel, "--log-file", $logfile
+						) or die "Could not exec rzh: $!\n";
+				}
+			}
+		}
+		print "Didn't run rzh!\n" unless $up;
+		close $sz;
 	}
 }
+
 

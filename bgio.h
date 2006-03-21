@@ -18,7 +18,7 @@ typedef struct {
 
 
 // Opens a pty and forks the child process specified by bgio_subshell_command.
-void bgio_start(bgio_state *state, const char *cmd);
+void bgio_start(bgio_state *state);
 
 // Shuts down everything started by bgio_start, then exits.
 void bgio_stop(bgio_state *state);

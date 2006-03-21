@@ -23,15 +23,17 @@
 
 
 typedef struct {
-	char rnum[64];
-	char snum[64];
-	char rbps[64];
-	char sbps[64];
-	double xfertime;
+	// this data structure contains the stats for the transfer
+	// in human-readable units.
+	char rnum[64];		// number of bytes received
+	char snum[64];		// number of bytes sent
+	char rbps[64];		// receive rate
+	char sbps[64];		// send rate
+	char xfertime[64];	// elapsed time of transfer
 } idle_numbers;
 
 
-static void human_readable(size_t size, char *buf, int bufsiz)
+static void human_bytes(size_t size, char *buf, int bufsiz)
 {
 	static const char *suffixes[] = { "B", "kB", "MB", "GB", 0 };
 	enum { step = 1024 };
@@ -60,6 +62,32 @@ static void human_readable(size_t size, char *buf, int bufsiz)
 	}
 
 	snprintf(buf, bufsiz, "%ld B", (long)size);
+}
+
+
+static int human_time(double dsecs, char *buf, int bufsiz)
+{
+	char *cp = buf;
+	int cnt;
+
+	int seconds = (int)dsecs;
+	int minutes = seconds / 60;
+	int hours = seconds / 3600;
+
+	if(hours > 0) {
+		cnt = snprintf(cp, bufsiz, "%d:", hours);
+		cp += cnt; bufsiz -= cnt;
+	}
+
+	if(minutes > 0) {
+		cnt = snprintf(buf, bufsiz, "%02d:", minutes);
+		cp += cnt; bufsiz -= cnt;
+	}
+
+	cnt = snprintf(buf, bufsiz, "%02d.%d", seconds, (int)(10*dsecs)%10);
+	cp += cnt; bufsiz -= cnt;
+
+	return cp - buf;
 }
 
 
@@ -108,21 +136,21 @@ static void idle_get_numbers(task_spec *spec, idle_numbers *out)
 
 	clock_gettime(CLOCK_REALTIME, &end_time);
 	xfertime = timespec_diff(&end_time, &idle->start_time);
-	if(xfertime == 0.0) {
+	if(xfertime <= 0.0) {
 		// assume a nanosecond if no time elapsed.
 		// this ensures we never divide by 0.
 		xfertime = 0.000000001;
 	}
 
 	int sendcnt = spec->master->input_master.bytes_written - idle->send_start_count;
-	human_readable(sendcnt, out->snum, sizeof(out->snum));
-	human_readable((size_t)((double)sendcnt/xfertime), out->sbps, sizeof(out->sbps));
+	human_bytes(sendcnt, out->snum, sizeof(out->snum));
+	human_bytes((size_t)((double)sendcnt/xfertime), out->sbps, sizeof(out->sbps));
 
 	int recvcnt = spec->master->master_output.bytes_written - idle->recv_start_count;
-	human_readable(recvcnt, out->rnum, sizeof(out->rnum));
-	human_readable((size_t)((double)recvcnt/xfertime), out->rbps, sizeof(out->rbps));
+	human_bytes(recvcnt, out->rnum, sizeof(out->rnum));
+	human_bytes((size_t)((double)recvcnt/xfertime), out->rbps, sizeof(out->rbps));
 
-	out->xfertime = xfertime;
+	human_time(xfertime, out->xfertime, sizeof(out->xfertime));
 }
 
 
@@ -191,8 +219,8 @@ int idle_proc(task_spec *spec)
 	idle_get_numbers(spec, &numbers);
 
 	snprintf(buf, sizeof(buf),
-		"Receiving %s in %.5f s: %s/s   Sending %s: %s",
-		n->rnum, n->xfertime, n->rbps, n->snum, n->sbps);
+		"rzh %s received %s at %s/s, sent %s at %s/s",
+		n->xfertime, n->rnum, n->rbps, n->snum, n->sbps);
 
 	len = master_get_window_width(spec->master);
 	if(len > sizeof(buf) - 1) {

@@ -55,7 +55,7 @@ void bgio_stop(bgio_state *state)
 }
 
 
-static void do_child(bgio_state *state, const char *cmd)
+static void do_child(bgio_state *state)
 {
 	char *shell;
 	char *name;
@@ -88,15 +88,17 @@ static void do_child(bgio_state *state, const char *cmd)
 	log_close();
 	fdcheck();
 
+	/*
 	if(cmd) {
 		execl(shell, name, "-c", cmd, NULL);
 		fprintf(stderr, "Could not exec %s -c %s: %s\n",
 				shell, cmd, strerror(errno));
 	} else {
+	*/
 		execl(shell, name, "-i", NULL);
 		fprintf(stderr, "Could not exec %s -i: %s\n",
 				shell, strerror(errno));
-	}
+	// }
 
 	exit(86);
 }
@@ -116,7 +118,7 @@ static void do_child(bgio_state *state, const char *cmd)
  * it only exits if it couldn't allocate a pty.  else it exits through bail).
  */
 
-void bgio_start(bgio_state *state, const char *cmd)
+void bgio_start(bgio_state *state)
 {
 	struct termios tt;
 
@@ -147,7 +149,7 @@ void bgio_start(bgio_state *state, const char *cmd)
 	}
 
 	if(state->child_pid == 0) {
-		do_child(state, cmd);
+		do_child(state);
 		perror("executing child");
 		kill(0, SIGTERM);
 		bail(fork_error3);

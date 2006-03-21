@@ -1,5 +1,6 @@
 - Add arguments for specifying zmodem receive program.
 	--ensure embedded ' and " work.
 - running a sub-rzh warns that the super is already downloading.
+	(how the hell can I test this?  need server mode)
 - warn about can't write to a write-protected download directory
 - can't find "rz" executable.

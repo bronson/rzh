@@ -4,29 +4,25 @@ B<rzh> - Receive ZMODEM Here
 
 =head1 SYNOPSIS
 
-B<rzh> [B<-q>|B<-v>] [I<directory>]
+B<rzh> [B<-i>|B<-q>] [I<directory>]
 
-To transfer the /etc/hosts file on tt.asplode.com to the current directory.
+To transfer the /etc/hosts file on tt.asplode.com to the current directory:
 
   $ rzh
   $ ssh www.asplode.com
   $ sz /etc/hosts
   173 bytes sent in 0.3 seconds.
-  $
+  $ exit		# exits the ssh session
+  $ exit		# exits the rzh session
 
 =head1 DESCRIPTION
 
-rzh forks itself ot the background and handles zmodem transfer requests.
-
-rzh can be useful for copying files between directories on the
-local machine.  Run rzh in the destination directory, then cd
-to the source directory and send each file using sz.  This is
-easier than specifying the full path every time.
+rzh forks itself ot the background and handles any zmodem transfer
+requests that it sees coming over the wire.
+is often easier than using scp or sftp.
+It can also be useful for copying files on the local machine.
 
 =head1 OPTIONS
-
-In the absence of B<-r> or B<-s>, rzh will fork itself to the background
-and wait for a zmodem send request.
 
 Specify the directory that you'd like to receive files to on the
 command line.  If no directory is supplied, the current directory
@@ -34,14 +30,19 @@ is used.
 
 =over 8
 
-=item B<-h> B<--help>
+=item B<-i> B<--info>
 
-Output a quick usage summary.
+Prints a brief message telling if rzh is currently running on the
+local shell.
 
 =item B<-q> B<--quiet>
 
 Suppresses the printing of status messages.
 Error messages are still printed to stderr.
+
+=item B<-h> B<--help>
+
+Output a quick usage summary.
 
 =item B<-V> B<--version>
 
@@ -49,20 +50,21 @@ Prints the version and exits.
 
 =item B<--rz>
 
-Specifies the location and default arguments for the rz program.
-By default rzh uses "/usr/bin/rz".  You can use aliases to specify
-this argument by default (for instance, if you wanted to disable
-timeouts):
-
-	alias rzh="rzh --rz='/usr/bin/rz --no-timeout'"
+Specifies the location and arguments for the rz program.
+By default rzh receives files using "/usr/bin/rz" with
+no arguments.
 
 You must specify the full path to the executable -- rzh doesn't
 use the PATH variable.  Also, rzh doesn't currently support quoting
-or backslashing in the
-argument list.  --rz='rz --prompt="a b"' will fail because
-"a b" will be interpreted as two separate arguments.  Short of
-implementing a mini command-line parser in rzh, I don't see an easy way
-around this.  Contact the author if you need this functionality.
+or backslashing in the argument list (see BUGS).
+
+  # rz normally skips duplicate files.  This will cause rz
+  # to overwrite them instead.
+  rzh --rz='/usr/bin/rz -y'
+
+  # put this in your .bashrc to disable timeouts
+  # (remember to disable timeouts when running sz as well)
+  alias rzh="rzh --rz='/usr/bin/rz --no-timeout'"
 
 =back
 
@@ -97,6 +99,11 @@ to the download directory.
 rzh suffers from all rz/sz bugs.
 For instance, with lrzsz, try calling sz with an invalid filename.
 Sometimes it will print an error, sometimes it will hang.
+There's not much rzh can do about this.
+
+rzh doesn't support quoting within --rz and --shell.
+For instance, --rz='/bin/cmd --prompt="a b"' will cause rzh to
+call /bin/cmd with two arguments '"a', and 'b"'.
 
 =head1 SEE ALSO
 

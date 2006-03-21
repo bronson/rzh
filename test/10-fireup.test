@@ -1,0 +1,10 @@
+# The purpose of this test is mostly to ensure that we properly
+# suppress the "OO" at the end of the zmodem transfer.
+
+# It happens on average about once every 10 times.  Make sure
+# to run this test repeatedly.
+
+DISABLED stdin problems
+
+RZH="$MYDIR/../rzh" perl "$MYDIR/fireup" "$MYDIR/Makefile"
+

@@ -13,6 +13,8 @@
 #include "log.h"
 
 
+#ifndef NDEBUG
+
 static int g_prio = 0;
 static FILE *g_logfile;
 
@@ -127,4 +129,6 @@ void log_vmsg(int prio, const char *fmt, va_list ap)
 	fprintf(g_logfile, "\n");
 	fflush(g_logfile);		// TODO should make this optional
 }
+
+#endif
 

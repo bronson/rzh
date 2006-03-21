@@ -3,6 +3,9 @@
  *
  * Sets up the bgio master pipe and prepares it to accept tasks.
  * Automatically installs the echo task as its first task.
+ *
+ * TODO: stdio is not reentrant.  Can't call log_XX from a signal
+ * handler.
  */
 
 #include <stdio.h>
@@ -153,7 +156,7 @@ static bgio_state* master_start_bgio()
 		perror("allocating bgio_state");
 		bail(47);
 	}
-	bgio_start(bgio, NULL);
+	bgio_start(bgio);
 
 	log_dbg("FD Master: %d", bgio->master);
 	log_dbg("FD Slave: %d", bgio->slave);

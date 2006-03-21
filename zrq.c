@@ -288,10 +288,10 @@ void zrq_scan(zscanstate *conn, const char *cp, const char *ce, struct fifo *f, 
 									// we don't care if we're out of data --
 									// the zmodem receive will start anyway.
 								log_info("zrq on %d found!", fd);
-								if(1) {
+								/*
 								extern void logio(char *gr1, char* gr2, int fd, const char *buf, int cnt, int act);
 								logio("There are", "remaining on", fd, cp, ce-cp, ce-cp);
-								}
+								*/
 								zscanstate_init(conn);
 								zscan_start(conn, f, cp, ce, fd);
 								return;

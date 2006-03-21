@@ -264,7 +264,7 @@ static void process_args(int argc, char **argv)
 		LOG_FILE,
 		RZ_CMD,
 		SHELL_CMD,
-		CONNECT_CMD,
+		CONNECT_ADDR,
 		INMA_FIFO_SIZE,
 		MAOU_FIFO_SIZE,
 	};
@@ -274,20 +274,25 @@ static void process_args(int argc, char **argv)
 		int optidx = 0;
 		static struct option long_options[] = {
 			// name, has_arg (1=reqd,2=opt), flag, val
-			{"connect", 1, 0, CONNECT_CMD},
+			{"help", 0, 0, 'h'},
+			{"info", 0, 0, 'i'},
+			{"quiet", 0, 0, 'q'},
+			{"version", 0, 0, 'V'},
+
+			{"rz", 1, 0, RZ_CMD},		// unfinished
+			{"shell", 1, 0, SHELL_CMD}, // unfinished
+
+#ifndef NDEBUG
+			{"connect", 1, 0, CONNECT_ADDR},
 			{"debug-attach", 0, 0, 'D'},
 			{"fifo-inma", 1, 0, INMA_FIFO_SIZE},
 			{"fifo-maout", 1, 0, MAOU_FIFO_SIZE},
-			{"help", 0, 0, 'h'},
-			{"info", 0, 0, 'i'},
 			{"loglevel", 1, 0, LOG_LEVEL},
 			{"log-level", 1, 0, LOG_LEVEL},
 			{"logfile", 1, 0, LOG_FILE},
 			{"log-file", 1, 0, LOG_FILE},
-			{"quiet", 0, 0, 'q'},
-			{"rz", 1, 0, RZ_CMD},
-			{"shell", 1, 0, SHELL_CMD},
-			{"version", 0, 0, 'V'},
+#endif
+
 			{0, 0, 0, 0}
 		};
 
@@ -295,15 +300,25 @@ static void process_args(int argc, char **argv)
 		if(c == -1) break;
 
 		switch(c) {
+			case 'h':
+				usage();
+				exit(0);
+
+#ifndef NDEBUG
+			case CONNECT_ADDR:
+				addr_specified++;
+				fmt = io_socket_parse(optarg, &conn_addr);
+				if(fmt != 0) {
+					fprintf(stderr, fmt, optarg);
+					exit(argument_error);
+				}
+				break;
+
 			case 'D':
 				fprintf(stderr, "Waiting for debugger to attach to pid %d...\n", (int)getpid());
 				// you must manually step the debugger past this infinite loop.
 				while(!bk) { }
 				break;
-
-			case 'h':
-				usage();
-				exit(0);
 
 			case LOG_FILE:
 				log_init(optarg);
@@ -345,6 +360,7 @@ static void process_args(int argc, char **argv)
 
 				}
 				break;
+#endif
 
 			case 'i':
 				get_info();
@@ -364,16 +380,7 @@ static void process_args(int argc, char **argv)
 			case SHELL_CMD:
 				cmd_parse(&shellcmd, optarg);
 				if(!opt_quiet) {
-					cmd_print("Shell command", &rzcmd);
-				}
-				break;
-
-			case CONNECT_CMD:
-				addr_specified++;
-				fmt = io_socket_parse(optarg, &conn_addr);
-				if(fmt != 0) {
-					fprintf(stderr, fmt, optarg);
-					exit(argument_error);
+					cmd_print("Shell command", &shellcmd);
 				}
 				break;
 

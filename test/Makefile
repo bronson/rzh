@@ -9,6 +9,6 @@ clean:
 	rm -f randfile
 
 test: randfile
-	./tmtest
+	tmtest
 
 .PHONY: test
