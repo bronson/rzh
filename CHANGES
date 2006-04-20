@@ -1,4 +1,14 @@
+- We currently freeze when the transfer is cancelled.  That's bad.
+
+- rzh -q: tell current rzh to quit
+	(doesn't matter how deep into other machines you are; this bangs
+	you right back up to your most recent rzh).
+- rzh -u: return to the next machine upward.  ^D or rzh -q to move downward.
+- rzh -i: tell where downloads are currently going
+    (not envar hack; literally hit the terminal to find out)
+
 - Add listening for keypresses to idle.c.
+- Ensure we make the idle string the right width -- always.
 
 - Add a real message for when a file is skipped.
   Should recommend using "sz -y"  or "sz -N" to ensure file is sent.
@@ -12,6 +22,9 @@
 - Need to worry about overflowing byte counters.  Convert them to long longs?
   Otherwise the numbers will go wrong after 4 GB transferred.
 
+- Is there any way to get the shell to flush its history?  Right now,
+  starting rzh screws up history (hit up arrow, down, run rzh, hit up
+  arrow -- notice how the history items are different).
 
 
 20 Mar 2006:

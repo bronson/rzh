@@ -79,12 +79,8 @@ static int human_time(double dsecs, char *buf, int bufsiz)
 		cp += cnt; bufsiz -= cnt;
 	}
 
-	if(minutes > 0) {
-		cnt = snprintf(buf, bufsiz, "%02d:", minutes);
-		cp += cnt; bufsiz -= cnt;
-	}
-
-	cnt = snprintf(buf, bufsiz, "%02d.%d", seconds, (int)(10*dsecs)%10);
+	cnt = snprintf(buf, bufsiz, "%d:%02d.%d", minutes % 60,
+			seconds % 60, (int)(10*dsecs)%10);
 	cp += cnt; bufsiz -= cnt;
 
 	return cp - buf;
@@ -103,7 +99,7 @@ static double timespec_diff(struct timespec *end, struct timespec *start)
 }
 
 
-idle_state* idle_create(master_pipe *mp)
+idle_state* idle_create(master_pipe *mp, const char *command)
 {
 	idle_state *idle = malloc(sizeof(idle_state));
 	if(idle == NULL) {
@@ -112,6 +108,7 @@ idle_state* idle_create(master_pipe *mp)
 	}
 	memset(idle, 0, sizeof(idle_state));
 
+	idle->command = command;
 	idle->send_start_count = mp->input_master.bytes_written;
 	idle->recv_start_count = mp->master_output.bytes_written;
 	idle->call_cnt = 0;
@@ -219,8 +216,8 @@ int idle_proc(task_spec *spec)
 	idle_get_numbers(spec, &numbers);
 
 	snprintf(buf, sizeof(buf),
-		"rzh %s received %s at %s/s, sent %s at %s/s",
-		n->xfertime, n->rnum, n->rbps, n->snum, n->sbps);
+		"%s %s: received %s at %s/s, sent %s at %s/s",
+		n->xfertime, idle->command, n->rnum, n->rbps, n->snum, n->sbps);
 
 	len = master_get_window_width(spec->master);
 	if(len > sizeof(buf) - 1) {

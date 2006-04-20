@@ -159,7 +159,7 @@ static task_spec* rz_create_spec(master_pipe *mp, int fd[3], int child_pid)
 	spec->maout_refcon = zfin_create(mp, zfin_nooo);
 	
 	spec->idle_proc = idle_proc;
-	spec->idle_refcon = idle_create(mp);
+	spec->idle_refcon = idle_create(mp, "rz");
 
 	spec->destruct_proc = rzt_destructor_proc;
 	spec->err_proc = cherr_proc;

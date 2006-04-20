@@ -1,3 +1,15 @@
+The major architecture confusion comes from two things:
+	- Thinking of the master task as something different from any other task.
+	- Thinking of tasks as a stack.  They're not.  You just have arbitrary
+	  tasks that you hook together.  No stack or nuthin.
+
+ - Get rid of the whole concept of a master.  They're all tasks.
+ - Is there any way to get rid of sigchld???  THAT might require a task.
+ - Get non-state out of task_state.  task_spec should be static data
+ at the top of all task.c files.  task_state should be opaque, created
+ from task_spec, and used to drive the task.
+
+
 The problem is the bidirectional pipe.
 
 	in -> master, master -> out
