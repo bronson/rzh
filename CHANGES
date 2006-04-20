@@ -26,6 +26,8 @@
   starting rzh screws up history (hit up arrow, down, run rzh, hit up
   arrow -- notice how the history items are different).
 
+20 Apr 2006:
+* Branch 0.8 just before the big scary refactoring.
 
 20 Mar 2006:
 * Finally got the last of the known transfer bugs.  It now works pretty well!
