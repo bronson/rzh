@@ -19,7 +19,6 @@
 #include "task.h"
 #include "idle.h"
 #include "util.h"
-#include "master.h"
 
 
 typedef struct {
@@ -152,9 +151,11 @@ static void idle_get_numbers(task_spec *spec, idle_numbers *out)
 
 
 /** Pads the string out to the given number of characters with spaces
+ * @param buf The string to pad
+ * @param width How long the string should be, including blanks.
  */
 
-static void adjust_string_width(char *buf, int width)
+static void pad_with_blanks(char *buf, int width)
 {
 	int i;
 
@@ -219,11 +220,11 @@ int idle_proc(task_spec *spec)
 		"%s %s: received %s at %s/s, sent %s at %s/s",
 		n->xfertime, idle->command, n->rnum, n->rbps, n->snum, n->sbps);
 
-	len = master_get_window_width(spec->master);
+	len = get_window_width();
 	if(len > sizeof(buf) - 1) {
 		len = sizeof(buf) - 1;
 	}
-	adjust_string_width(buf, len);
+	pad_with_blanks(buf, len);
 
 	buf[len-1] = '\r';
 
@@ -259,11 +260,11 @@ void idle_end(task_spec *spec)
 		"Received %s at %s/s   Sent %s at %s/s.",
 		n->rnum, n->rbps, n->snum, n->sbps);
 
-	len = master_get_window_width(spec->master);
+	len = get_window_width();
 	if(len > sizeof(buf) - 1) {
 		len = sizeof(buf) - 1;
 	}
-	adjust_string_width(buf, len);
+	pad_with_blanks(buf, len);
 
 	buf[len-2] = '\r';
 	buf[len-1] = '\n';

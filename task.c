@@ -1,13 +1,8 @@
 /* task.c
  * 14 June 2005
  * Scott Bronson
- *
- * Tasks are inserted onto pipes to handle processing.  For instance,
- * the default task is echo, just copying data unmodified over the
- * pipe.  However, when the echo task notices a zmodem start sequence
- * it inserts the rztask onto the pipe.  The rztask then handles all
- * data until it exits, when the echo task takes over again.
  */
+
 
 #include <assert.h>
 #include <stdio.h>
@@ -443,28 +438,4 @@ master_pipe* master_pipe_init(int masterfd)
 
 	return mp;
 }
-
-
-/*
-void master_pipe_terminate(master_pipe *mp)
-{
-	task_state *task = mp->task_head;
-
-	while(task) {
-		(*task->spec->terminate_proc)(mp, task->spec);
-		task = task->next;
-	}
-
-	(*mp->terminate_proc)(mp);
-
-	// TODO: Should probably wait around for kids to die...?
-
-	while(mp->task_head) {
-		task_remove(mp);
-	}
-
-	// now the pipe should be entirely destroyed.
-}
-*/
-
 

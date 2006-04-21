@@ -2,10 +2,6 @@
  * Scott Bronson
  *
  * Starts up background I/O behind another process.
- *
- * NOTE: can currently only handle one ongoing bgio session because of
- * the single global used by the signal callbacks.  Too bad C doesn't
- * have closures...  Some dynamic alloc/dealloc would fix this if need be.
  */
 
 #include <pty.h>
@@ -21,6 +17,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <termios.h>
 
 #include "bgio.h"
 #include "log.h"
@@ -28,34 +25,49 @@
 #include "util.h"
 
 
-command shellcmd;
 
+static int st_master_fd;
+static int st_slave_fd;
+int st_child_pid;
+static struct termios st_stdin_ios;	// restore when finished
+static struct winsize st_window;			// current winsize of terminal
 
-bgio_state *g_state;	// this sucks.  it's for the signals.
-int bgio_child_pid;		// this also sucks.  It's for the global sigchld handler.
 
 
 static void window_resize(int dummy)
 {
-	bgio_state *state = g_state;
-
-	ioctl(0, TIOCGWINSZ, (char*)&state->window);
-	ioctl(state->slave, TIOCSWINSZ, (char*)&state->window);
-	kill(state->child_pid, SIGWINCH);
+	ioctl(0, TIOCGWINSZ, (char*)&st_window);
+	ioctl(st_slave_fd, TIOCSWINSZ, (char*)&st_window);
+	kill(st_child_pid, SIGWINCH);
 }
 
 
-void bgio_stop(bgio_state *state)
+void bgio_stop()
 {
-	tcsetattr(0, TCSAFLUSH, &state->stdin_termios);
-	log_info("Closed FD %d (master)", state->master);
-	close(state->master);
-	log_info("Closed FD %d (slave)", state->slave);
-	close(state->slave);
+	tcsetattr(0, TCSAFLUSH, &st_stdin_ios);
+	log_info("Closed FD %d (master)", st_master_fd);
+	close(st_master_fd);
+	log_info("Closed FD %d (slave)", st_slave_fd);
+	close(st_slave_fd);
 }
 
 
-static void do_child(bgio_state *state)
+void bgio_close()
+{
+	close(st_master_fd);
+	close(st_slave_fd);
+}
+
+
+int bgio_get_window_width()
+{
+	// This routine may be called even if we're using socketio
+	// instead of bgio.  Ensure we still return decent data.
+	return st_window.ws_col ? st_window.ws_col : 80;
+}
+
+
+static void do_child()
 {
 	char *shell;
 	char *name;
@@ -77,28 +89,22 @@ static void do_child(bgio_state *state)
 	}
 
 	setsid();
-	ioctl(state->slave, TIOCSCTTY, 0);
+	ioctl(st_slave_fd, TIOCSCTTY, 0);
 
-	close(state->master);
-	dup2(state->slave, 0);
-	dup2(state->slave, 1);
-	dup2(state->slave, 2);
-	close(state->slave);
+	close(st_master_fd);
+	dup2(st_slave_fd, 0);
+	dup2(st_slave_fd, 1);
+	dup2(st_slave_fd, 2);
+	close(st_slave_fd);
 
 	log_close();
 	fdcheck();
 
-	/*
-	if(cmd) {
-		execl(shell, name, "-c", cmd, NULL);
-		fprintf(stderr, "Could not exec %s -c %s: %s\n",
-				shell, cmd, strerror(errno));
-	} else {
-	*/
-		execl(shell, name, "-i", NULL);
-		fprintf(stderr, "Could not exec %s -i: %s\n",
-				shell, strerror(errno));
-	// }
+	// There's probably no need for -i since input and output are
+	// to ttys anway.  However, since all shells support it, why not?
+	execl(shell, name, "-i", NULL);
+	fprintf(stderr, "Could not exec %s -i: %s\n",
+			shell, strerror(errno));
 
 	exit(86);
 }
@@ -118,44 +124,42 @@ static void do_child(bgio_state *state)
  * it only exits if it couldn't allocate a pty.  else it exits through bail).
  */
 
-void bgio_start(bgio_state *state)
+int bgio_start()
 {
 	struct termios tt;
 
-	// this is why we can only handle one session at once.
-	g_state = state;
-
-	tcgetattr(0, &state->stdin_termios);
-	ioctl(0, TIOCGWINSZ, (char *)&state->window);
-	if (openpty(&state->master, &state->slave, NULL,
-				&state->stdin_termios, &state->window) < 0) {
+	tcgetattr(0, &st_stdin_ios);
+	ioctl(0, TIOCGWINSZ, (char *)&st_window);
+	if (openpty(&st_master_fd, &st_slave_fd, NULL,
+				&st_stdin_ios, &st_window) < 0) {
 		perror("calling openpty");
 		kill(0, SIGTERM);
 		exit(fork_error1);
 	}
 
-	log_dbg("bgio: master=%d slave=%d", state->master, state->slave);
+	log_dbg("bgio: master=%d slave=%d", st_master_fd, st_slave_fd);
 
-	tt = state->stdin_termios;
+	tt = st_stdin_ios;
 	cfmakeraw(&tt);
 	tt.c_lflag &= ~ECHO;
 	tcsetattr(0, TCSAFLUSH, &tt);
 
-	state->child_pid = fork();
-	if(state->child_pid < 0) {
+	st_child_pid = fork();
+	if(st_child_pid < 0) {
 		perror("forking child");
 		kill(0, SIGTERM);
 		bail(fork_error2);
 	}
 
-	if(state->child_pid == 0) {
-		do_child(state);
+	if(st_child_pid == 0) {
+		do_child();
 		perror("executing child");
 		kill(0, SIGTERM);
 		bail(fork_error3);
 	}
 
-	bgio_child_pid = state->child_pid;
 	signal(SIGWINCH, window_resize);
+
+	return st_master_fd;
 }
 

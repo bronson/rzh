@@ -17,6 +17,5 @@ void cmd_parse(command *cmd, const char *str);
 void cmd_print(const char *str, command *cmd);
 void cmd_free(command *cmd);
 
-
-extern command rzcmd, shellcmd;		// there must be a better place for this.
+extern command rzcmd;
 

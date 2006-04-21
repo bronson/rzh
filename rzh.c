@@ -28,8 +28,8 @@
 #include "pipe.h"
 #include "task.h"
 #include "cmd.h"
-#include "echo.h"
-#include "master.h"
+#include "echotask.h"
+#include "consoletask.h"
 #include "util.h"
 
 
@@ -280,7 +280,6 @@ static void process_args(int argc, char **argv)
 			{"version", 0, 0, 'V'},
 
 			{"rz", 1, 0, RZ_CMD},		// unfinished
-			{"shell", 1, 0, SHELL_CMD}, // unfinished
 
 #ifndef NDEBUG
 			{"connect", 1, 0, CONNECT_ADDR},
@@ -377,13 +376,6 @@ static void process_args(int argc, char **argv)
 				}
 				break;
 
-			case SHELL_CMD:
-				cmd_parse(&shellcmd, optarg);
-				if(!opt_quiet) {
-					cmd_print("Shell command", &shellcmd);
-				}
-				break;
-
 			case 'V':
 				printf("rzh version %s\n", stringify(VERSION));
 				exit(0);
@@ -432,7 +424,6 @@ int main(int argc, char **argv)
 	io_init();
 
 	cmd_init(&rzcmd);
-	cmd_init(&shellcmd);
 	conn_addr.addr.s_addr = inet_addr("127.0.0.1");
 	conn_addr.port = 0;
 
@@ -479,7 +470,6 @@ int main(int argc, char **argv)
 	}
 
 	cmd_free(&rzcmd);
-	cmd_free(&shellcmd);
 
 	if(val == 0) {
 		// We're not forking, we're qutting normally.  The requirements are

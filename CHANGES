@@ -1,3 +1,6 @@
+- Get rid of master_pipe.  Spread functionality into tasks, and the app
+  should just keep a global of the current task.
+
 - We currently freeze when the transfer is cancelled.  That's bad.
 
 - rzh -q: tell current rzh to quit

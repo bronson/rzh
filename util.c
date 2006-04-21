@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include "bgio.h"
 #include "util.h"
 #include "log.h"
 
@@ -57,5 +58,11 @@ int chdir_to_dldir()
 	}
 
 	return succ;
+}
+
+
+int get_window_width()
+{
+	return bgio_get_window_width();
 }
 

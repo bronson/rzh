@@ -1,3 +1,5 @@
+// This is a file of random crap that doesn't easily fit anywhere else.
+
 extern int g_highest_fd;
 extern int opt_quiet;
 
@@ -5,6 +7,7 @@ extern const char *download_dir;
 
 void fdcheck();
 int find_highest_fd();
+int get_window_width();
 
 // provided by rzh.
 extern void bail(int val);

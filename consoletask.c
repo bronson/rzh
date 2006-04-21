@@ -4,6 +4,7 @@
  * Sets up the bgio master pipe and prepares it to accept tasks.
  * Automatically installs the echo task as its first task.
  *
+ * TODO: get rid of st_child_pid
  * TODO: stdio is not reentrant.  Can't call log_XX from a signal
  * handler.
  */
@@ -24,8 +25,8 @@
 #include "io/io.h"
 #include "pipe.h"
 #include "task.h"
-#include "master.h"
 #include "util.h"
+#include "consoletask.h"
 
 
 static int sigchild_received;
@@ -72,16 +73,14 @@ void master_check_sigchild(master_pipe *mp)
 
 static void master_pipe_destructor(master_pipe *mp, int free_mem)
 {
-	bgio_state *bgio = mp->refcon;
-
 	master_pipe_default_destructor(mp, free_mem);
 
 	if(free_mem) {
-		if(bgio) {
-			bgio_stop(bgio);
-			free(bgio);
-		}
+		bgio_stop();
 
+		// TODO -- where do we stick this code?  How does rzh.c
+		// discover that its console task has been destroyed?
+		//
 		// When we're done destroying the pipe, bail with no error.
 		if(!opt_quiet) {
 			fprintf(stderr, "rzh exited.\n");
@@ -90,35 +89,24 @@ static void master_pipe_destructor(master_pipe *mp, int free_mem)
 		// We only want to bail if we're exiting normally.  If we're
 		// just cleaning up before forking, no need to bail!
 		bail(0);
-	}
-
-	// we're only forking so only close the files.
-	if(bgio) {
-		close(bgio->master);
-		close(bgio->slave);
+	} else {
+		// we're only forking so close the files, don't free the mem.
+		bgio_close();
 	}
 }
 
 
 static void master_terminate(master_pipe *mp)
 {
-	bgio_state *bgio = mp->refcon;
-	if(!bgio) {
-		return;
+	if(st_child_pid > 0) {
+		kill(st_child_pid, SIGTERM);
 	}
-
-	kill(bgio->child_pid, SIGTERM);
 }
 
 
 static void master_pipe_sigchild(master_pipe *mp, int pid)
 {
-	bgio_state *bgio = mp->refcon;
-	if(!bgio) {
-		return;
-	}
-
-	if(pid == bgio->child_pid) {
+	if(pid == st_child_pid) {
 		// our child shell has disappeared.
 		// Kill off all tasks.  The removal of the last task will
 		// trigger the destructor which leaps directly home.
@@ -149,35 +137,18 @@ int master_idle(master_pipe *mp)
 }
 
 
-static bgio_state* master_start_bgio()
-{
-	bgio_state *bgio = malloc(sizeof(bgio_state));
-	if(bgio == NULL) {
-		perror("allocating bgio_state");
-		bail(47);
-	}
-	bgio_start(bgio);
-
-	log_dbg("FD Master: %d", bgio->master);
-	log_dbg("FD Slave: %d", bgio->slave);
-
-	return bgio;
-}
-
-
-master_pipe* master_setup(int sockfd)
+master_pipe* master_setup(int fd)
 {
 	master_pipe *mp;
-	bgio_state *bgio = NULL;
 
-	if(sockfd < 0) {
+	if(fd < 0) {
 		// no socket, so open a tty
-		bgio = master_start_bgio();
-		mp = master_pipe_init(bgio->master);
-	} else {
-		// we were given a socket so use that
-		mp = master_pipe_init(sockfd);
+		fd = bgio_start();
 	}
+
+	// TODO log_dbg("FD Master: %d", bgio->master);
+	// TODO log_dbg("FD Slave: %d", bgio->slave);
+	mp = master_pipe_init(fd);
 
 	if(mp == NULL) {
 		perror("allocating master pipe");
@@ -186,18 +157,10 @@ master_pipe* master_setup(int sockfd)
 	mp->destruct_proc = master_pipe_destructor;
 	mp->sigchild_proc = master_pipe_sigchild;
 	mp->terminate_proc = master_terminate;
-	mp->refcon = bgio;
 
 	signal(SIGCHLD, sigchild);
 	signal(SIGPIPE, sigpipe);
 
 	return mp;
-}
-
-
-int master_get_window_width(master_pipe *mp)
-{
-	bgio_state *bgio = mp->refcon;
-	return bgio ? bgio->window.ws_col : 80;
 }
 

@@ -5,21 +5,15 @@
  * This file is MIT licensed.
  */
 
-#include <termios.h>
 
-
-typedef struct {
-	int master;						// the fd of the master
-	int slave;						// the fd of the slave (needed for winch)
-	int child_pid;					// the pid of the subprocess
-	struct termios stdin_termios;	// original termios to restore when finished
-	struct winsize window;			// current winsize of terminal
-} bgio_state;
-
+extern int st_child_pid;	// TODO: get rid of me!
 
 // Opens a pty and forks the child process specified by bgio_subshell_command.
-void bgio_start(bgio_state *state);
-
+int bgio_start();
 // Shuts down everything started by bgio_start, then exits.
-void bgio_stop(bgio_state *state);
+void bgio_stop();
+// closes the fds used by bgio but doesn't deallocate any memory
+void bgio_close();
+
+int bgio_get_window_width();
 

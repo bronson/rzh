@@ -7,10 +7,16 @@
 
 VERSION=0.8
 
-CSRC=bgio.c echo.c fifo.c log.c idle.c master.c pipe.c cmd.c \
-	rztask.c task.c util.c zfin.c zrq.c
+CSRC=bgio.c cmd.c fifo.c idle.c log.c pipe.c task.c util.c zfin.c zrq.c
+CSRC+=consoletask.c echotask.c rztask.c
+CSRC+=io/io_socket.c
 CHDR:=$(CSRC:.c=.h)
-CSRC+=rzh.c io/io_select.c io/io_socket.c
+
+CSRC+=io/io_select.c 
+CHDR+=io/io.h
+
+CSRC+=rzh.c 
+
 
 COPTS+=-DVERSION=$(VERSION)
 

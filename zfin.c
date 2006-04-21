@@ -11,7 +11,7 @@
  *  Scans for the ZFIN packet and tries to assure an orderly shutdown.
  *
  *  Terminating the connection without sending garbage onto the user's
- *  terminal is made somewhat complex due to zmodem weirdness.
+ *  terminal is made somewhat complex due to signfiicant zmodem weirdness.
  *  Here's how we do it now:
  *  
  *  1) Sender sends ZFIN
@@ -81,6 +81,33 @@ void zfin_destroy(zfinscanstate *state)
 	}
 	free(state);
 }
+
+
+#if 0
+
+// This wrapper verifies that zfin_scan doesn't modify its data in any way.
+void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
+{
+	log_warn("enter: size=%d refcon=%08lX", size, (long)f->refcon);
+	int ofe = f->end;
+	orig_zfin_scan(f, buf, size, fd);
+	int nfe = f->end;
+
+	if(nfe >= ofe) {
+		if(nfe - ofe != size) {
+			log_warn("sizes differ!");
+		} else if(memcmp(f->buf+ofe, buf, size) != 0) {
+			log_warn("contents differ!");
+		}
+	} else {
+		// skip this for now
+		log_warn("wrap!");
+	}
+}
+
+#define zfin_scan orig_zfin_scan
+
+#else
 
 
 void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
@@ -156,6 +183,8 @@ void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
 	}
 }
 
+#endif
+
 
 /** No OO: drops an optional OO, then passes the rest to zfinsave */
 // TODO: this doesn't appear to work 100%
@@ -229,27 +258,4 @@ void zfin_drop(struct fifo *f, const char *buf, int size, int fd)
 
 	log_info("IGNORE from %d: \"%s\"", fd, sanitize(buf, size));
 }
-
-
-/*
-   // This wrapper verifies that zfin_scan doesn't modify its data in any way.
-void zfin_scan(struct fifo *f, const char *buf, int size, int fd)
-{
-	log_warn("enter: size=%d refcon=%08lX", size, (long)f->refcon);
-	int ofe = f->end;
-	azfin_scan(f, buf, size, fd);
-	int nfe = f->end;
-
-	if(nfe >= ofe) {
-		if(nfe - ofe != size) {
-			log_warn("sizes differ!");
-		} else if(memcmp(f->buf+ofe, buf, size) != 0) {
-			log_warn("contents differ!");
-		}
-	} else {
-		// skip this for now
-		log_warn("wrap!");
-	}
-}
-*/
 
