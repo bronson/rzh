@@ -21,21 +21,21 @@
 #include "util.h"
 
 #ifdef __APPLE__
-    #include <sys/time.h>
-    #define CLOCK_REALTIME 0
+	#include <sys/time.h>
+	#define CLOCK_REALTIME 0
 
-    // clock_gettime is not implemented on OSX
-    int clock_gettime(int clock_id, struct timespec* ts)
-    {
-        struct timeval now;
-        
-        int rv = gettimeofday(&now, NULL);
-        if (rv) return rv;
-        ts->tv_sec  = now.tv_sec;
-        ts->tv_nsec = now.tv_usec * 1000;
-        
-        return 0;
-    }
+	// clock_gettime is not implemented on OSX
+	int clock_gettime(int clock_id, struct timespec* ts)
+	{
+		struct timeval now;
+		
+		int rv = gettimeofday(&now, NULL);
+		if (rv) return rv;
+		ts->tv_sec	= now.tv_sec;
+		ts->tv_nsec = now.tv_usec * 1000;
+		
+		return 0;
+	}
 #endif
 
 typedef struct {
@@ -53,7 +53,7 @@ static void human_bytes(size_t size, char *buf, int bufsiz)
 	static const char *suffixes[] = { "B", "kB", "MB", "GB", 0 };
 	enum { step = 1024 };
 
-	const char **suffix = &suffixes[0];	
+	const char **suffix = &suffixes[0]; 
 	size_t base = 1;
 	size_t num;
 	int rem;
@@ -190,7 +190,7 @@ int idle_proc(task_spec *spec)
 		sleeptime = 300,	// time between invocations in ms.
 		fuzztime = 50,		// if there are less than fuzztime ms until
 			// the idle proc comes due, then we just run the idle proc
-			// now.  It's early, but the user won't know the difference.
+			// now.	 It's early, but the user won't know the difference.
 			// More efficient to do it this way rather than requiring our
 			// own timeout at precisely the right time.
 		// In short:
@@ -253,7 +253,7 @@ int idle_proc(task_spec *spec)
 
 
 /** Called at the end of the transfer to print a final status string.
- *  It also frees the idle state.
+ *	It also frees the idle state.
  */
 
 void idle_end(task_spec *spec)
