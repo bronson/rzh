@@ -34,6 +34,9 @@
 #include "util.h"
 #include "consoletask.h"
 
+#ifndef MAXINT
+    #define MAXINT (1ull << ((8 * sizeof(int)) - 2))
+#endif
 
 static int sigchild_received;
 

@@ -24,6 +24,9 @@
 #include <unistd.h>
 #include "io.h"
 
+#ifndef MAXINT
+    #define MAXINT (1ull << ((8 * sizeof(int)) - 2))
+#endif
 
 static io_atom* connections[FD_SETSIZE];
 static fd_set fd_read, fd_write, fd_except;
