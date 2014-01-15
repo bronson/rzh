@@ -32,6 +32,9 @@
 #include "consoletask.h"
 #include "util.h"
 
+#ifndef CHAR_MAX
+    #define CHAR_MAX 127
+#endif
 
 const char *envname = "RZHDIR";
 
