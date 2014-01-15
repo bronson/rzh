@@ -20,6 +20,23 @@
 #include "idle.h"
 #include "util.h"
 
+#ifdef __APPLE__
+    #include <sys/time.h>
+    #define CLOCK_REALTIME 0
+
+    // clock_gettime is not implemented on OSX
+    int clock_gettime(int clock_id, struct timespec* ts)
+    {
+        struct timeval now;
+        
+        int rv = gettimeofday(&now, NULL);
+        if (rv) return rv;
+        ts->tv_sec  = now.tv_sec;
+        ts->tv_nsec = now.tv_usec * 1000;
+        
+        return 0;
+    }
+#endif
 
 typedef struct {
 	// this data structure contains the stats for the transfer
@@ -30,7 +47,6 @@ typedef struct {
 	char sbps[64];		// send rate
 	char xfertime[64];	// elapsed time of transfer
 } idle_numbers;
-
 
 static void human_bytes(size_t size, char *buf, int bufsiz)
 {
