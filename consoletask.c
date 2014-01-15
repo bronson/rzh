@@ -14,8 +14,14 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <values.h>
-#include <pty.h>
+#ifdef __APPLE__
+    #include <limits.h>
+    #include <util.h>
+    #include <signal.h>
+#else
+    #include <values.h>
+    #include <pty.h>
+#endif
 #include <sys/types.h>
 #include <sys/wait.h>
 

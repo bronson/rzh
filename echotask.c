@@ -8,9 +8,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <values.h>
 #include <assert.h>
-#include <pty.h>
+#ifdef __APPLE__
+    #include <limits.h>
+    #include <util.h>
+#else
+    #include <values.h>
+    #include <pty.h>
+#endif
 
 #include "log.h"
 #include "bgio.h"

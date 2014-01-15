@@ -14,7 +14,11 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <values.h>
+#ifdef __APPLE__
+    #include <limits.h>
+#else
+    #include <values.h>
+#endif
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
