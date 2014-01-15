@@ -26,11 +26,17 @@ else
 COPTS+=-Wall -Werror -g
 endif
 
+LIBS=-lutil
+ifneq ($(shell uname), Darwin)
+LIBS+=-lrt
+endif
+
+
 
 all: rzh doc
 
 rzh: $(CSRC) $(CHDR)
-	$(CC) $(COPTS) $(CSRC) -lutil -lrt -o rzh
+	$(CC) $(COPTS) $(CSRC) $(LIBS) -o rzh
 ifeq ("$(PRODUCTION)","1")
 	strip rzh
 endif
