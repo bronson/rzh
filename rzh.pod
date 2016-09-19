@@ -79,6 +79,8 @@ the keys that it recognizes:
 
 Cancels the current transfer.
 
+=back
+
 =head1 ENVIRONMENT
 
 =over 4

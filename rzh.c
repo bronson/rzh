@@ -260,7 +260,7 @@ static void process_args(int argc, char **argv)
 	int addr_specified = 0;
 
 	enum {
-		LOG_LEVEL = CHAR_MAX + 1,
+		LOG_LEVEL = 256,
 		LOG_FILE,
 		RZ_CMD,
 		SHELL_CMD,
