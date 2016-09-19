@@ -89,7 +89,7 @@ int io_set(io_atom *atom, int flags);   	///< Sets the io_atom::flags on the giv
 int io_del(io_atom *atom);              	///< Removes the atom from the list 
 
 /// Waits for an event, then handles it.  Stops waiting if timeout occurs.
-/// Specify MAXINT for no timeout.  The timeout is specified in ms.
+/// Specify INT_MAX for no timeout.  The timeout is specified in ms.
 int io_wait(unsigned int timeout);
 void io_dispatch();
 

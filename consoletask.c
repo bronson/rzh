@@ -14,7 +14,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <values.h>
+#include <limits.h>
 #include <pty.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -133,7 +133,7 @@ int master_idle(master_pipe *mp)
 	}
 
 	task_spec *spec = mp->task_head->spec;
-	return spec->idle_proc ? (*spec->idle_proc)(spec) : MAXINT;
+	return spec->idle_proc ? (*spec->idle_proc)(spec) : INT_MAX;
 }
 
 
@@ -163,4 +163,3 @@ master_pipe* master_setup(int fd)
 
 	return mp;
 }
-

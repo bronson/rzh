@@ -113,7 +113,7 @@ int io_wait(int timeout)
 	struct timeval *tvp = &tv;
 	int num;
 
-	if(timeout == MAXINT) {
+	if(timeout == INT_MAX) {
 		tvp = NULL;
 	} else {
 		tv.tv_sec = timeout / 1000;

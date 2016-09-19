@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <values.h>
+#include <limits.h>
 #include <assert.h>
 #include <pty.h>
 
@@ -83,7 +83,7 @@ static void echo_scanner_destructor(task_spec *spec, int free_mem)
 	if(free_mem) {
 		zrq_destroy(spec->maout_refcon);
 	}
-	
+
 	echo_destructor(spec, free_mem);
 }
 
@@ -108,4 +108,3 @@ task_spec *echo_scanner_create_spec(master_pipe *mp)
 
 	return spec;
 }
-

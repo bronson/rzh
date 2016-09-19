@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <values.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -51,7 +51,7 @@ int io_socket_connect_fd(socket_addr remote)
     struct sockaddr_in sa;
     int err;
 	int fd;
-    
+
     fd = socket(AF_INET, SOCK_STREAM, 0);
     if(fd < 0) {
 		return fd;
@@ -61,7 +61,7 @@ int io_socket_connect_fd(socket_addr remote)
 	sa.sin_family = AF_INET;
 	sa.sin_addr.s_addr = htonl(INADDR_ANY);
 	sa.sin_port = htons(0);
-    
+
 	err = bind(fd, (struct sockaddr*)&sa, sizeof(sa));
 	if(err < 0) {
 		goto bail;
@@ -71,12 +71,12 @@ int io_socket_connect_fd(socket_addr remote)
     sa.sin_family = AF_INET;
     sa.sin_addr = remote.addr;
     sa.sin_port = htons(remote.port);
-    
+
     err = connect(fd, (struct sockaddr*)&sa, sizeof(sa));
     if(err < 0) {
 		goto bail;
     }
-    
+
     if(set_nonblock(fd) < 0) {
 		goto bail;
     }
@@ -98,13 +98,13 @@ bail:
  * @param flags The flags that the atom should have initially.
  * 	(IO_READ will set it up initially to watch for read events,
  * 	IO_WRITE for write events).
- * 
+ *
  * @returns The new fd (>=0) if successful, or an error (<0) if not.
  * If there was an error, you should find the reason in strerror.
  */
 
 int io_socket_connect(io_atom *io, io_proc proc, socket_addr remote, int flags)
-{   
+{
 	int err;
 
 	io->fd = io_socket_connect_fd(remote);
@@ -289,7 +289,7 @@ int io_socket_read(io_atom *io, char *buf, size_t cnt, size_t *readlen)
             // turns out there was nothing to read after all?  weird.
 			// there was no error, but nothing to process either.
             return 0;
-        } 
+        }
 
         // there's some sort of error on this socket.
         return errno ? errno : -1;
@@ -297,7 +297,7 @@ int io_socket_read(io_atom *io, char *buf, size_t cnt, size_t *readlen)
 }
 
 
-/** 
+/**
  * Converts a string into an integer.  Unlinke the standard C routines,
  * this routine returns an error if the conversion fails.
  * @returns 1 if the conversion was successful, 0 if not.
@@ -403,4 +403,3 @@ char* io_socket_parse(const char *spec, socket_addr *sock)
 
 	return NULL;
 }
-

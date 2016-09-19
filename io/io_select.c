@@ -14,7 +14,7 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <values.h>
+#include <limits.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -96,7 +96,7 @@ int io_add(io_atom *atom, int flags)
 	connections[fd] = atom;
 	install(fd, flags);
 	if(fd > max_fd) max_fd = fd;
-	
+
 	return 0;
 }
 
@@ -138,7 +138,7 @@ int io_enable(io_atom *atom, int flags)
 	if(flags & IO_EXCEPT) {
 		FD_SET(atom->fd, &fd_except);
 	}
-	
+
 	return 0;
 }
 
@@ -191,9 +191,9 @@ int io_del(io_atom *atom)
 
 
 /** Waits for events.  See io_dispatch to dispatch the events.
- * 
+ *
  * @param timeout The maximum amount of time we should wait in
- * milliseconds.  MAXINT is special-cased to mean forever.
+ * milliseconds.  INT_MAX is special-cased to mean forever.
  *
  * @returns the number of events to be dispatched or a negative
  * number if there was an error.
@@ -205,7 +205,7 @@ int io_wait(unsigned int timeout)
 	struct timeval *tvp = &tv;
 	int ret;
 
-	if(timeout == MAXINT) {
+	if(timeout == INT_MAX) {
 		tvp = NULL;
 	} else {
 		tv.tv_sec = timeout / 1000;
@@ -249,4 +249,3 @@ void io_dispatch()
 		}
 	}
 }
-

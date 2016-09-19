@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <values.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -74,12 +74,12 @@ void connection_proc(io_atom *ioa, int flags)
 	connection *conn = (connection*)ioa;
     int fd = conn->io.fd;
     int len;
-        
-    if(flags & IO_READ) { 
+
+    if(flags & IO_READ) {
         do {
             len = read(fd, g_readbuf, sizeof(g_readbuf));
         } while (errno == EINTR);   // stupid posix
-    
+
         if(len > 0) {
 			write(fd, g_readbuf, len);
             conn->chars_processed += len;
@@ -100,12 +100,12 @@ void connection_proc(io_atom *ioa, int flags)
             }
         }
     }
-    
+
     if(flags & IO_WRITE) {
 		// there's more space in the write buffer
 		// so continue writing.
-    }   
-            
+    }
+
     if(flags & IO_EXCEPT) {
         // I think this is also used for OOB.
         // recv (fd1, &c, 1, MSG_OOB);
@@ -218,12 +218,10 @@ int main(int argc, char **argv)
 	printf("Listening on port %d, fd %d.\n", PORT, g_accepter.fd);
 
 	for(;;) {
-		io_wait(MAXINT);
+		io_wait(INT_MAX);
 	}
 
 	io_exit();
 
 	return 0;
 }
-
-
