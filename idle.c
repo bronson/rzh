@@ -31,6 +31,31 @@ typedef struct {
 	char xfertime[64];	// elapsed time of transfer
 } idle_numbers;
 
+
+#ifdef __APPLE__
+	// clock_gettime is not implemented on OSX
+	#include <mach/clock.h>
+	#include <mach/mach_init.h>
+	#include <mach/mach_host.h>
+	#include <mach/mach_port.h>
+
+	int clock_gettime(clockid_t clock_id, struct timespec* ts)
+	{
+		clock_serv_t cclock;
+		mach_timespec_t now;
+
+		host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
+		clock_get_time(cclock, &now);
+		mach_port_deallocate(mach_task_self(), cclock);
+
+		ts->tv_sec  = now.tv_sec;
+		ts->tv_nsec = now.tv_nsec;
+
+		return 0;
+	}
+#endif
+
+
 static void human_bytes(size_t size, char *buf, int bufsiz)
 {
 	static const char *suffixes[] = { "B", "kB", "MB", "GB", 0 };
@@ -110,7 +135,7 @@ idle_state* idle_create(master_pipe *mp, const char *command)
 	idle->send_start_count = mp->input_master.bytes_written;
 	idle->recv_start_count = mp->master_output.bytes_written;
 	idle->call_cnt = 0;
-	clock_gettime(CLOCK_REALTIME, &idle->start_time);
+	clock_gettime(CLOCK_MONOTONIC, &idle->start_time);
 
 	return idle;
 }
@@ -129,7 +154,7 @@ static void idle_get_numbers(task_spec *spec, idle_numbers *out)
 
 	idle_state *idle = (idle_state*)spec->idle_refcon;
 
-	clock_gettime(CLOCK_REALTIME, &end_time);
+	clock_gettime(CLOCK_MONOTONIC, &end_time);
 	xfertime = timespec_diff(&end_time, &idle->start_time);
 	if(xfertime <= 0.0) {
 		// assume a nanosecond if no time elapsed.
@@ -201,7 +226,7 @@ int idle_proc(task_spec *spec)
 	// we just need to ensure that we wait for the appropriate amount
 	// of time before updating the display again.
 	if(idle->last_time.tv_sec != 0) {
-		clock_gettime(CLOCK_REALTIME, &now_time);
+		clock_gettime(CLOCK_MONOTONIC, &now_time);
 		diff = timespec_diff(&now_time, &idle->last_time);
 		bah = sleeptime - (int)(diff*1000);
 		if(bah > fuzztime) {
@@ -230,7 +255,7 @@ int idle_proc(task_spec *spec)
 	// ok, this list of pointers is a little silly.
 	write(spec->master->task_head->next->spec->outfd, buf, len);
 
-	clock_gettime(CLOCK_REALTIME, &idle->last_time);
+	clock_gettime(CLOCK_MONOTONIC, &idle->last_time);
 	return sleeptime;
 }
 
