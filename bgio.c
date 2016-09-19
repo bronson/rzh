@@ -4,7 +4,6 @@
  * Starts up background I/O behind another process.
  */
 
-#include <util.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +17,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
+
+#ifdef __APPLE__
+	#include <util.h>
+#else
+	#include <pty.h>
+#endif
 
 #include "bgio.h"
 #include "log.h"
