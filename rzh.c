@@ -1,7 +1,7 @@
 /* rzh.c
  * 1 Nov 2004
  * Scott Bronson
- * 
+ *
  * The main routine for the rzh utility.
  *
  * This file is released under the MIT license.  This is basically the
@@ -124,7 +124,7 @@ static int i_have_permission(const struct stat *st, int op)
 			return 1;
 		}
 	}
-	
+
 	if(st->st_mode & S_IRWXG & op) {
 		if(getegid() == st->st_gid) {
 			return 1;
@@ -346,7 +346,7 @@ static void process_args(int argc, char **argv)
 							fprintf(stderr, "Value out of range: %d\n", i);
 						}
 						if(c == INMA_FIFO_SIZE) {
-							inma_fifo_size = i;	
+							inma_fifo_size = i;
 						} else if(c == MAOU_FIFO_SIZE) {
 							maou_fifo_size = i;
 						} else {
@@ -364,7 +364,7 @@ static void process_args(int argc, char **argv)
 			case 'i':
 				get_info();
 				break;
-			
+
 			case 'q':
 				opt_quiet++;
 				break;
@@ -388,7 +388,7 @@ static void process_args(int argc, char **argv)
 	}
 
 	download_dir = argv[optind++];
-	
+
 	// supplying more than one directory is an error.
 	if(optind < argc) {
 		fprintf(stderr, "Too many arguments: ");
@@ -480,4 +480,3 @@ int main(int argc, char **argv)
 
 	exit(val);
 }
-

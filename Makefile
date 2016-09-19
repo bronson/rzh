@@ -12,10 +12,10 @@ CSRC+=consoletask.c echotask.c rztask.c
 CSRC+=io/io_socket.c
 CHDR:=$(CSRC:.c=.h)
 
-CSRC+=io/io_select.c 
+CSRC+=io/io_select.c
 CHDR+=io/io.h
 
-CSRC+=rzh.c 
+CSRC+=rzh.c
 
 
 COPTS+=-DVERSION=$(VERSION)
@@ -26,11 +26,16 @@ else
 COPTS+=-Wall -Werror -g
 endif
 
+LIBS=-lutil
+ifneq ($(shell uname), Darwin)
+LIBS+=-lrt
+endif
+
 
 all: rzh doc
 
 rzh: $(CSRC) $(CHDR)
-	$(CC) $(COPTS) $(CSRC) -lutil -lrt -o rzh
+	$(CC) $(COPTS) $(CSRC) $(LIBS) -o rzh
 ifeq ("$(PRODUCTION)","1")
 	strip rzh
 endif
