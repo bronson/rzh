@@ -4,7 +4,7 @@
  * Starts up background I/O behind another process.
  */
 
-#include <pty.h>
+#include <util.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -162,4 +162,3 @@ int bgio_start()
 
 	return st_master_fd;
 }
-

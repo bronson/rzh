@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <assert.h>
-#include <pty.h>
+#include <util.h>
 
 #include "log.h"
 #include "bgio.h"
