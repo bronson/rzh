@@ -371,9 +371,6 @@ static void process_args(int argc, char **argv)
 
 			case RZ_CMD:
 				cmd_parse(&rzcmd, optarg);
-				if(!opt_quiet) {
-					cmd_print("Receive ZMODEM command", &rzcmd);
-				}
 				break;
 
 			case 'V':
