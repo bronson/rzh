@@ -86,23 +86,10 @@ void rzh_fork_prepare()
 
 static void print_greeting()
 {
-	int err;
-	struct hostent *hp;
 	char buf[PATH_MAX];
-	char *hostname = "UNKNWOWN";
-
-	// Try to discover what machine we're running on
-	err = gethostname(buf, sizeof(buf));
-	buf[sizeof(buf)-1] = '\0';	// stupid clib
-	if(err == 0) {
-		hp = gethostbyname(buf);
-		if(hp != NULL) {
-			hostname = hp->h_name;
-		}
-	}
 
 	if(getcwd(buf, sizeof(buf))) {
-		printf("Saving to %s on %s.\r\n", buf, hostname);
+		printf("Saving to %s\r\n", buf);
 	} else {
 		// Some sort of error but not worth stopping the program.
 		printf("rzh is running but couldn't figure out the CWD!\r\n");
