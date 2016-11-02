@@ -39,6 +39,9 @@ typedef struct {
 	#include <mach/mach_host.h>
 	#include <mach/mach_port.h>
 
+	typedef int	clockid_t;
+	#define CLOCK_MONOTONIC 0
+
 	int clock_gettime(clockid_t clock_id, struct timespec* ts)
 	{
 		clock_serv_t cclock;
